@@ -1,7 +1,7 @@
 // Service worker : garde l'application disponible hors ligne.
 // Les appels à Supabase ne sont jamais mis en cache (les données passent par la file de synchronisation).
-const VERSION='carnet-v2.1.0';
-const SHELL=['./','index.html','styles.css','app.js','config.js','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/apple-touch-icon.png'];
+const VERSION='carnet-v2.1.1';
+const SHELL=['./','index.html','styles.css','app.js','config.js','manifest.webmanifest','icons/favicon.svg','icons/icon-192.png','icons/icon-512.png','icons/apple-touch-icon.png'];
 const LIB='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js';
 
 self.addEventListener('install',e=>{

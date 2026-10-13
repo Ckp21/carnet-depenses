@@ -160,7 +160,7 @@ tfoot td{font-weight:700;background:var(--mist-50);border-bottom:none}
 
 /* Boutons en pilule (I-01 à I-03) */
 .actions{display:flex;flex-wrap:wrap;gap:8px}
-.btn,.btn-primary,.btn-danger{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 20px;border-radius:999px;font-size:14px;font-weight:700}
+.btn,.btn-primary,.btn-danger,.btn-action{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 20px;border-radius:999px;font-size:14px;font-weight:700}
 .btn{border:1px solid var(--filet);background:var(--white);color:var(--ink-900)}
 .btn-primary{background:var(--forest-600);color:var(--white);border:none}
 .btn-danger{background:var(--danger);color:var(--white);border:none}
@@ -292,3 +292,10 @@ details>summary::-webkit-details-marker{display:none}
 table.compact{min-width:0;font-size:13px}
 table.compact th,table.compact td{padding:8px}
 table.compact td:first-child{white-space:normal}
+
+/* Logo */
+.brand-row{display:flex;align-items:center;gap:12px;min-width:0}
+.brand-mark,.band-mark{display:inline-flex;flex:none}
+.brand-mark svg{width:32px;height:32px}
+.band-mark svg{width:56px;height:56px;margin-bottom:16px}
+.btn-action{background:var(--orange);color:var(--white);border:none}

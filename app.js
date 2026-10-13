@@ -26,6 +26,8 @@ const ICONS={
   hand:'<path d="M11 14h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 16"/><path d="m7 20 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9"/><path d="m2 15 6 6"/>',
   flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>'
 };
+// Logo A « l'anneau » : un C de Carnet ouvert comme une pièce, le point orange est le franc mis de côté
+const LOGO=fg=>`<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M47.32 19.14A20 20 0 1 0 47.32 44.86" fill="none" stroke="${fg}" stroke-width="9" stroke-linecap="round"/><circle cx="50" cy="32" r="5" fill="#F47521"/></svg>`;
 const ic=(n,c='')=>`<svg class="ic ${c}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]||''}</svg>`;
 
 /* ---------- Référentiels ---------- */
@@ -691,6 +693,7 @@ function buildStatic(){
   $('f-nats').innerHTML=chips('nat',[['besoin','Besoin','#04382A'],['envie','Envie','#F5C04A']]);
   $('f-mkind').innerHTML=Object.entries(MOVES).map(([k,v])=>`<option value="${k}">${esc(v.label)}</option>`).join('');
   $('tabs').innerHTML=TABS.map(([k,l,i])=>`<button type="button" data-tab="${k}"><span class="pil">${ic(i)}</span>${l}</button>`).join('');
+  $('brandMark').innerHTML=LOGO('#FFFFFF');
   $('setBtn').innerHTML=ic('sliders','s16')+'Réglages';
   $('fab').innerHTML=ic('plus')+'Ajouter';
   $('closeBtn').innerHTML=ic('x');
@@ -941,14 +944,14 @@ window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=
 
 /* ---------- Accès ---------- */
 function gate(html){$('app').hidden=true;$('gate').hidden=false;$('gate').innerHTML=html}
-const band=`<div class="band"><h1>Carnet de <em>dépenses</em></h1><p>Ton budget, tes portefeuilles et ton épargne, en francs CFA.</p></div>`;
+const band=`<div class="band"><span class="band-mark">${LOGO('#FFFFFF')}</span><h1>Carnet de <em>dépenses</em></h1><p>Ton budget, tes portefeuilles et ton épargne, en francs CFA.</p></div>`;
 function showSetup(){gate(band+`<div class="body"><p>L'application n'est pas encore reliée à ta base Supabase.</p><p class="hint">Renseigne l'URL du projet et la clé publique dans <b>config.js</b>, puis republie le site. Le guide complet est dans le README.</p></div>`)}
 function showLogin(m){
   gate(band+`<div class="body"><form id="login" novalidate style="display:flex;flex-direction:column;gap:16px">
       <label class="inp">Adresse électronique<input type="email" id="l-email" autocomplete="email" required value="${esc(email)}"></label>
       <label class="inp">Mot de passe<input type="password" id="l-pass" autocomplete="current-password" minlength="8" required></label>
       <p class="err" id="l-err" ${m?'':'hidden'}>${esc(m||'')}</p>
-      <button type="submit" class="btn-primary btn-wide" id="l-in">Se connecter</button>
+      <button type="submit" class="btn-action btn-wide" id="l-in">Se connecter</button>
       <button type="button" class="btn btn-wide" id="l-up">Créer mon compte</button></form></div>`);
   const err=x=>{$('l-err').textContent=x;$('l-err').hidden=false;$('l-err').style.color=''};
   const creds=()=>({email:$('l-email').value.trim(),password:$('l-pass').value});
