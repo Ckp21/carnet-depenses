@@ -1,5 +1,8 @@
 # Historique des versions
 
+## 2.3.1 (octobre 2026)
+- Lecture des SMS calée sur les vrais messages MTN Mobile Money Congo : envoi, paiement (« pour leap »), réception, dépôt et retrait chez l'agent, avec frais et date. Opérateur MTN par défaut, Airtel reconnu à son nom.
+
 ## 2.3 (octobre 2026)
 - Saisie depuis un SMS MTN MoMo ou Airtel Money : montant, frais, date, opérateur et type (paiement, argent reçu, retrait) remplis automatiquement. Un SMS collé dans la fenêtre est reconnu tout seul.
 - Catégorie proposée d'après la note (mots-clés locaux et historique des dépenses).

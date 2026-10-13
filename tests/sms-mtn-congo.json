@@ -1,0 +1,66 @@
+[
+ {
+  "t": "Vous avez envoye 1552 FCFA a JEAN PAUL MOUKALA 242060000000 le 2026-10-03 23:27:12. Solde: 12398 FCFA. ID: 1234567890",
+  "want": {
+   "amount": 1552,
+   "fee": 0,
+   "date": "2026-10-03",
+   "op": "mtn",
+   "kind": "expense",
+   "who": "JEAN PAUL MOUKALA"
+  }
+ },
+ {
+  "t": "Vous avez retire 11000 XAF de votre compte 10000000 chez l'agent le 2026-10-04 14:20:48. Solde: 813 XAF. Frais: 385XAF. ID: 1234567890",
+  "want": {
+   "amount": 11000,
+   "fee": 385,
+   "date": "2026-10-04",
+   "op": "mtn",
+   "kind": "withdraw"
+  }
+ },
+ {
+  "t": "Vous avez paye 320 FCFA pour leap. Frais: 0 FCFA.Solde: 493 FCFA. ID: 1234567890.Vous avez gagne 0points pour la promo Sepela na MoMo Ed2.",
+  "want": {
+   "amount": 320,
+   "fee": 0,
+   "date": null,
+   "op": "mtn",
+   "kind": "expense",
+   "who": "leap"
+  }
+ },
+ {
+  "t": "Vous avez recu 500 XAF de Marc Ngoma (242060000000) sur votre compte mobile money 2026-10-05 23:27:06. Message de l'exp diteur: . Solde: 543 XAF. FRAIS: FCFA 0. ID: 1234567890",
+  "want": {
+   "amount": 500,
+   "fee": 0,
+   "date": "2026-10-05",
+   "op": "mtn",
+   "kind": "income",
+   "who": "Marc Ngoma"
+  }
+ },
+ {
+  "t": "Vous avez paye 500 FCFA pour leap. Frais: 0 FCFA.Solde: 43 FCFA. ID: 1234567890.Vous avez gagne 0points pour la promo Sepela na MoMo Ed2.",
+  "want": {
+   "amount": 500,
+   "fee": 0,
+   "op": "mtn",
+   "kind": "expense",
+   "who": "leap"
+  }
+ },
+ {
+  "t": "Vous avez recu un depot de 15500 XAF de MARIE CLAIRE  BOUESSO  MALONGA sur votre compte mobile money 2026-10-07 10:15:42. Message de l'expediteur: . Solde: 15543 FCFA. Frais: 0 XAF. ID: 1234567890",
+  "want": {
+   "amount": 15500,
+   "fee": 0,
+   "date": "2026-10-07",
+   "op": "mtn",
+   "kind": "income",
+   "who": "MARIE CLAIRE BOUESSO MALONGA"
+  }
+ }
+]

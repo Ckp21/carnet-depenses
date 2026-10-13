@@ -356,10 +356,14 @@ function parseSMS(text){
   if(d2)date=`${d2[1]}-${d2[2]}-${d2[3]}`;
   else if(d1){const y=d1[3].length===2?'20'+d1[3]:d1[3];date=`${y}-${pad(+d1[2])}-${pad(+d1[1])}`}
   if(date&&(isNaN(parseISO(date))||date>isoOf(new Date(Date.now()+864e5))))date=null;
-  const n=norm(t), op=/airtel/.test(n)?'airtel':/mtn|momo/.test(n)?'mtn':null;
+  // Les SMS de l'expéditeur « MobileMoney » sont ceux de MTN Congo ; Airtel se nomme toujours
+  const n=norm(t), op=/airtel/.test(n)?'airtel':'mtn';
   const kind=/retrait|withdraw|cash ?out|retire/.test(n)?'withdraw':/(vous avez )?re[cç]u|received|credite|depot|cash ?in|transfert entrant/.test(n)&&!/envoy|paiement|paye|achat|sent/.test(n)?'income':'expense';
-  let who=null;const w=t.match(/(?:\bà|\ba|\bto|\bchez|\bvers|\bde|\bfrom|\bpar)\s+([A-Z][A-Za-zÀ-ÿ'.-]+(?:\s+[A-Z][A-Za-zÀ-ÿ'.-]+){0,3})/);
-  if(w&&!/^(MTN|Airtel|Mobile|Money|FCFA|XAF)$/i.test(w[1]))who=w[1].slice(0,40);
+  let who=null;
+  const pay=t.match(/\bpour\s+([^.\n]{2,40}?)\s*\./i);
+  const w=t.match(/(?:\bà|\ba|\bto|\bchez|\bvers|\bde|\bfrom|\bpar)\s+([A-Z][A-Za-zÀ-ÿ'.-]+(?:\s+[A-Z][A-Za-zÀ-ÿ'.-]+){0,4})/);
+  if(kind==='expense'&&pay&&!/promo/i.test(pay[1]))who=pay[1].trim();
+  else if(w&&!/^(MTN|Airtel|Mobile|Money|FCFA|XAF)$/i.test(w[1]))who=w[1].replace(/\s+/g,' ').slice(0,40);
   return amount>0?{amount,fee,date,op,kind,who}:null;
 }
 function nextDate(day,fromISO){const f=parseISO(fromISO);let d=new Date(f.getFullYear(),f.getMonth(),Math.min(day,daysIn(ymOf(f))));if(isoOf(d)<fromISO){const n=new Date(f.getFullYear(),f.getMonth()+1,1);d=new Date(n.getFullYear(),n.getMonth(),Math.min(day,daysIn(ymOf(n))))}return isoOf(d)}
