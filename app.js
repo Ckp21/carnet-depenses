@@ -24,7 +24,10 @@ const ICONS={
   swap:'<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',
   users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   hand:'<path d="M11 14h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 16"/><path d="m7 20 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9"/><path d="m2 15 6 6"/>',
-  flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>'
+  flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
+  scan:'<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01"/><path d="M15 9h.01"/>',
+  lock:'<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  share:'<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/>'
 };
 // Logo A « l'anneau » : un C de Carnet ouvert comme une pièce, le point orange est le franc mis de côté
 const LOGO=fg=>`<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M47.32 19.14A20 20 0 1 0 47.32 44.86" fill="none" stroke="${fg}" stroke-width="9" stroke-linecap="round"/><circle cx="50" cy="32" r="5" fill="#F47521"/></svg>`;
@@ -89,12 +92,23 @@ const spend=e=>e.amount+(e.fee||0);
 const sumBy=(a,f)=>a.reduce((t,x)=>t+f(x),0);
 const median=a=>{if(!a.length)return 0;const s=[...a].sort((x,y)=>x-y),h=s.length>>1;return s.length%2?s[h]:(s[h-1]+s[h])/2};
 const $=id=>document.getElementById(id);
+const IOS=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const STANDALONE=()=>window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const BIO=IOS?'Face ID':'la biométrie';
+const HAS_WEBAUTHN=!!(window.PublicKeyCredential&&navigator.credentials);
 const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 
 /* ---------- État ---------- */
-const K={cache:'cd2-cache',outbox:'cd2-outbox',uid:'cd2-uid',email:'cd2-email',tab:'cd2-tab',met:'cd2-met',bilan:'cd2-bilan-vu',span:'cd2-span'};
+const K={remember:'cd2-remember',passkey:'cd2-passkey',lock:'cd2-lock',hiddenAt:'cd2-hidden-at',cache:'cd2-cache',outbox:'cd2-outbox',uid:'cd2-uid',email:'cd2-email',tab:'cd2-tab',met:'cd2-met',bilan:'cd2-bilan-vu',span:'cd2-span'};
 const DEF_SETTINGS={savings_goal:0,opening:{},opening_date:null,emergency_months:3,inflation:4};
 const EMPTY=()=>({expenses:{},incomes:{},budgets:{},recurring:{},moves:{},plans:{},settings:Object.assign({},DEF_SETTINGS)});
+// Session Supabase : appareil (localStorage) si « Rester connecté », sinon durée de l'onglet (sessionStorage)
+const remember=()=>LS.get('cd2-remember',true);
+const authStore={
+  getItem(k){try{return localStorage.getItem(k)??sessionStorage.getItem(k)}catch(e){return null}},
+  setItem(k,v){try{if(remember()){localStorage.setItem(k,v);sessionStorage.removeItem(k)}else{sessionStorage.setItem(k,v);localStorage.removeItem(k)}}catch(e){}},
+  removeItem(k){try{localStorage.removeItem(k);sessionStorage.removeItem(k)}catch(e){}}
+};
 let D=Object.assign(EMPTY(),LS.get(K.cache,{}));
 D.settings=Object.assign({},DEF_SETTINGS,D.settings);D.moves=D.moves||{};D.plans=D.plans||{};
 let outbox=LS.get(K.outbox,[]);
@@ -673,13 +687,73 @@ function renderSettings(){
     <div class="actions"><button type="button" class="btn" data-act="exportJson">Télécharger la sauvegarde</button><button type="button" class="btn" data-act="pickImport">Restaurer un fichier</button></div>`;
   if(pendingImport){const p=pendingImport;h+=msg('warning','Fichier prêt à importer',`${p.expenses.length} dépenses · ${p.incomes.length} entrées · ${p.moves.length} mouvements · ${p.plans.length} projets, tontines et prêts. Les éléments déjà présents avec le même identifiant seront remplacés. Rien n'est supprimé.`)+`<div class="actions"><button type="button" class="btn-primary" data-act="doImport">Importer</button><button type="button" class="btn" data-act="cancelImport">Annuler</button></div>`}
   h+=`</section>`;
-  const standalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone;
-  h+=`<section class="block"><p class="over">Application</p>${standalone?'<p class="hint">L\'application est installée sur cet appareil.</p>':installEvt?'<p class="hint">Installe le carnet sur ton écran d\'accueil pour l\'ouvrir comme une application, même sans connexion.</p><div class="actions"><button type="button" class="btn-primary" data-act="install">Installer l\'application</button></div>':'<p class="hint">Pour l\'installer : sur Android, menu du navigateur puis « Installer l\'application » ; sur iPhone, bouton Partager puis « Sur l\'écran d\'accueil ».</p>'}</section>`;
+  h+=renderSecurity();
+  const standalone=STANDALONE();
+  h+=`<section class="block"><p class="over">Application</p>${standalone?'<p class="hint">L\'application est installée sur cet appareil.</p>':installEvt?'<p class="hint">Installe le carnet sur ton écran d\'accueil pour l\'ouvrir comme une application, même sans connexion.</p><div class="actions"><button type="button" class="btn-primary" data-act="install">Installer l\'application</button></div>':installGuide()}</section>`;
   const off=!navigator.onLine||!sb;
   h+=`<section class="block"><p class="over">Compte et synchronisation</p><div class="ref num"><span>Compte</span><span class="v">${esc(email||'-')}</span><span>État</span><span class="v">${off?'hors ligne':'en ligne'}</span><span>Modifications en attente</span><span class="v">${outbox.length}</span><span>Dernière synchronisation</span><span class="v">${lastSync?new Date(lastSync).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}).replace(':',' h '):'-'}</span></div>
     <div class="actions"><button type="button" class="btn" data-act="syncNow">Synchroniser</button><button type="button" class="${S.armed==='logout'?'btn-danger':'btn'}" data-act="logout">${S.armed==='logout'?'Confirmer la déconnexion':'Se déconnecter'}</button></div>
     ${S.armed==='logout'?`<p class="hint">${outbox.length?`<b style="color:var(--danger)">${outbox.length} modification(s) non envoyée(s) seront perdues.</b> `:''}La copie locale sera effacée de ce téléphone. Tes données restent sur le serveur.</p>`:''}</section>`;
   return h;
+}
+
+/* ---------- Sécurité : connexion mémorisée, Face ID, verrouillage ---------- */
+function installGuide(){
+  if(IOS)return `<div class="steps"><p class="hint">Installe le carnet comme une application : plein écran, icône sur l'écran d'accueil, ${BIO} et fonctionnement hors ligne.</p>
+    <ol><li>Ouvre cette page dans <b>Safari</b>.</li><li>Touche le bouton <b>Partager</b> ${ic('share','s16')} en bas de l'écran.</li><li>Choisis <b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b>.</li></ol></div>`;
+  return '<p class="hint">Pour l\'installer : menu du navigateur puis « Installer l\'application » ou « Ajouter à l\'écran d\'accueil ».</p>';
+}
+function renderSecurity(){
+  const pk=LS.get(K.passkey,false), lock=LS.get(K.lock,false);
+  let h=`<section class="block"><p class="over">Sécurité</p>
+    <div class="form-row"><span>Rester connecté sur cet appareil<span class="meta" style="display:block">Désactivé : il faudra se reconnecter à chaque ouverture.</span></span><label class="switch"><input type="checkbox" id="remember" ${remember()?'checked':''}><span></span></label></div>`;
+  if(!HAS_WEBAUTHN)return h+`<p class="hint">Cet appareil ne prend pas en charge les clés d'accès biométriques.</p></section>`;
+  h+=`<div class="form-row"><span>Connexion avec ${BIO}<span class="meta" style="display:block">${pk?'Clé d\'accès enregistrée sur cet appareil.':'Une clé d\'accès est créée et gardée dans ton trousseau. Aucun mot de passe à retaper.'}</span></span>${pk?pill('success','Activée'):`<button type="button" class="btn-primary sm" data-act="registerPasskey">Activer</button>`}</div>`;
+  if(pk)h+=`<div class="form-row"><span>Verrouiller à l'ouverture<span class="meta" style="display:block">${BIO} est demandé à chaque ouverture et après 2 minutes en arrière-plan.</span></span><label class="switch"><input type="checkbox" id="lockOpt" ${lock?'checked':''}><span></span></label></div>`;
+  return h+`<p class="hint">Ton mot de passe n'est jamais stocké par l'application. Pour le retenir, utilise le trousseau de ton téléphone : il te le propose à la première connexion.</p></section>`;
+}
+async function registerPasskey(){
+  if(!sb||!navigator.onLine)return toast('Connexion Internet nécessaire pour activer '+BIO);
+  try{
+    const {error}=await sb.auth.registerPasskey();
+    if(error)throw error;
+    LS.set(K.passkey,true);toast(BIO+' activé');render();
+  }catch(e){
+    const m=String(e?.message||e);
+    if(/cancel|abort|NotAllowed/i.test(m))return toast('Activation annulée');
+    toast(/disabled|not enabled|passkey/i.test(m)&&!/cancel/i.test(m)?'Les clés d\'accès ne sont pas activées dans Supabase (voir le README)':'Activation impossible : '+m);
+  }
+}
+let locked=false;
+function showLock(){
+  locked=true;$('sheetWrap').hidden=true;
+  gate(`<div class="lock-screen"><span class="band-mark">${LOGO('#FFFFFF')}</span><h1>Carnet <em>verrouillé</em></h1>
+    <button type="button" class="btn-action" id="unlockBtn">${ic('scan')}Déverrouiller avec ${BIO}</button>
+    <p class="err" id="lockErr" hidden></p>
+    <button type="button" class="linkbtn" id="pwdBtn">Utiliser mon mot de passe</button></div>`);
+  $('unlockBtn').onclick=unlock;
+  $('pwdBtn').onclick=()=>{locked=false;showLogin()};
+  setTimeout(unlock,300);
+}
+async function unlock(){
+  const err=m=>{$('lockErr').textContent=m;$('lockErr').hidden=false};
+  try{
+    if(sb&&navigator.onLine){
+      const {data,error}=await sb.auth.signInWithPasskey();
+      if(error)throw error;
+      locked=false;return startApp(data.session,true);
+    }
+    // Hors ligne : vérification biométrique locale avec la clé de l'appareil
+    const challenge=crypto.getRandomValues(new Uint8Array(32));
+    const cred=await navigator.credentials.get({publicKey:{challenge,rpId:location.hostname,userVerification:'required',timeout:60000}});
+    if(!cred)throw new Error('annulé');
+    locked=false;startApp(null,true);
+  }catch(e){err(/cancel|abort|NotAllowed|annul/i.test(String(e?.message||e))?'Déverrouillage annulé. Touche le bouton pour réessayer.':'Déverrouillage impossible. Utilise ton mot de passe.')}
+}
+async function passkeyLogin(){
+  const err=x=>{$('l-err').textContent=x;$('l-err').hidden=false};
+  try{const {data,error}=await sb.auth.signInWithPasskey();if(error)throw error;LS.set(K.passkey,true);startApp(data.session,true)}
+  catch(e){const m=String(e?.message||e);err(/cancel|abort|NotAllowed/i.test(m)?'Connexion annulée.':'Aucune clé d\'accès trouvée. Connecte-toi avec ton mot de passe, puis active '+BIO+' dans Réglages.')}
 }
 
 /* ---------- Fenêtre de saisie ---------- */
@@ -745,10 +819,10 @@ function openSheet(item,kind,preset){
   $('f-note').value=item?.note||'';
   $('f-del').hidden=!item;$('f-del').textContent='Supprimer';
   $('f-err').hidden=true;
-  $('sheetWrap').hidden=false;
+  $('sheetWrap').hidden=false;document.documentElement.classList.add('modal');
   setTimeout(()=>$('f-amount').focus(),60);
 }
-function closeSheet(){$('sheetWrap').hidden=true;S.editing=null}
+function closeSheet(){$('sheetWrap').hidden=true;document.documentElement.classList.remove('modal');S.editing=null}
 function formErr(m){$('f-err').textContent=m;$('f-err').hidden=false}
 function saveSheet(ev){
   ev.preventDefault();
@@ -883,7 +957,7 @@ function doImport(){
 async function logout(){
   if(S.armed!=='logout'){S.armed='logout';render();return}
   S.armed=null;try{if(sb)await sb.auth.signOut()}catch(e){}
-  D=EMPTY();outbox=[];[K.cache,K.outbox,K.uid,K.email].forEach(LS.del);uid=null;email='';showLogin();
+  D=EMPTY();outbox=[];[K.cache,K.outbox,K.uid,K.lock].forEach(LS.del);uid=null;email='';showLogin();
 }
 
 /* ---------- Événements ---------- */
@@ -910,6 +984,7 @@ document.addEventListener('click',ev=>{
     saveBud:saveBudgets,applyProp:applyProposal,saveGoal,saveOpening,addRec,exportJson,pickImport:()=>$('importFile').click(),doImport,cancelImport:()=>{pendingImport=null;render()},
     hideBilan:()=>{LS.set(K.bilan,shiftM(curM(),-1));render()},
     install:async()=>{if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice}catch(e){}installEvt=null;render()},
+    registerPasskey,
     syncNow:()=>sync(true).then(()=>toast(navigator.onLine?'Synchronisé':'Hors ligne : réessaie plus tard')),logout};
   if(acts[ds.act])acts[ds.act]();
 });
@@ -923,6 +998,8 @@ document.addEventListener('input',ev=>{
   if(['f-amount','f-fee'].includes(i.id)||i.dataset.bud!==undefined||i.dataset.money!==undefined){const d=digits(i.value).slice(0,12);i.value=d?group(d.replace(/^0+(?=\d)/,'')):''}
 });
 document.addEventListener('change',ev=>{
+  if(ev.target.id==='remember'){LS.set(K.remember,ev.target.checked);sb?.auth.getSession().then(({data})=>{if(data.session){authStore.setItem('cd2-auth',JSON.stringify(data.session))}});toast(ev.target.checked?'Tu resteras connecté sur cet appareil':'Reconnexion demandée à chaque ouverture');return}
+  if(ev.target.id==='lockOpt'){LS.set(K.lock,ev.target.checked);toast(ev.target.checked?'Verrouillage activé':'Verrouillage désactivé');return}
   const n=ev.target.name;
   if(n==='cat'&&!S.natTouched)radio('nat',NEED.has(ev.target.value)?'besoin':'envie');
   if(n==='nat')S.natTouched=true;
@@ -940,6 +1017,13 @@ $('f-del').onclick=deleteSheet;
 window.addEventListener('online',()=>sync(true));
 window.addEventListener('offline',updateSync);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')sync(false)});
+['gesturestart','gesturechange'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+let lastTouch=0;document.addEventListener('touchend',e=>{const n=Date.now();if(n-lastTouch<300&&!e.target.closest('input,select,textarea'))e.preventDefault();lastTouch=n},{passive:false});
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'){LS.set(K.hiddenAt,Date.now());return}
+  const away=Date.now()-LS.get(K.hiddenAt,Date.now());
+  if(LS.get(K.lock,false)&&LS.get(K.passkey,false)&&!locked&&!$('app').hidden&&away>120000)showLock();
+});
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;if(S.tab==='settings')render()});
 
 /* ---------- Accès ---------- */
@@ -948,23 +1032,28 @@ const band=`<div class="band"><span class="band-mark">${LOGO('#FFFFFF')}</span><
 function showSetup(){gate(band+`<div class="body"><p>L'application n'est pas encore reliée à ta base Supabase.</p><p class="hint">Renseigne l'URL du projet et la clé publique dans <b>config.js</b>, puis republie le site. Le guide complet est dans le README.</p></div>`)}
 function showLogin(m){
   gate(band+`<div class="body"><form id="login" novalidate style="display:flex;flex-direction:column;gap:16px">
-      <label class="inp">Adresse électronique<input type="email" id="l-email" autocomplete="email" required value="${esc(email)}"></label>
-      <label class="inp">Mot de passe<input type="password" id="l-pass" autocomplete="current-password" minlength="8" required></label>
+      ${HAS_WEBAUTHN?`<button type="button" class="btn-action btn-wide" id="l-pk">${ic('scan')}Se connecter avec ${BIO}</button><p class="or"><span>ou avec ton mot de passe</span></p>`:''}
+      <label class="inp">Adresse électronique<input type="email" id="l-email" name="username" autocomplete="username" autocapitalize="off" required value="${esc(email)}"></label>
+      <label class="inp">Mot de passe<input type="password" id="l-pass" name="password" autocomplete="current-password" minlength="8" required></label>
+      <label class="check"><input type="checkbox" id="l-remember" ${remember()?'checked':''}> Rester connecté sur cet appareil</label>
       <p class="err" id="l-err" ${m?'':'hidden'}>${esc(m||'')}</p>
-      <button type="submit" class="btn-action btn-wide" id="l-in">Se connecter</button>
-      <button type="button" class="btn btn-wide" id="l-up">Créer mon compte</button></form></div>`);
+      <button type="submit" class="${HAS_WEBAUTHN?'btn-primary':'btn-action'} btn-wide" id="l-in">Se connecter</button>
+      <button type="button" class="btn btn-wide" id="l-up">Créer mon compte</button></form>${IOS&&!STANDALONE()?`<section class="block" style="margin-top:8px"><p class="over">Installer sur l'iPhone</p>${installGuide()}</section>`:''}</div>`);
+  if($('l-pk'))$('l-pk').onclick=passkeyLogin;
+  $('l-remember').onchange=e=>LS.set(K.remember,e.target.checked);
   const err=x=>{$('l-err').textContent=x;$('l-err').hidden=false;$('l-err').style.color=''};
   const creds=()=>({email:$('l-email').value.trim(),password:$('l-pass').value});
   $('login').addEventListener('submit',async ev=>{ev.preventDefault();const c=creds();if(!c.email||!c.password)return err('Indique ton adresse et ton mot de passe.');
     $('l-in').disabled=true;const {data,error}=await sb.auth.signInWithPassword(c);$('l-in').disabled=false;
-    if(error)return err(/confirm/i.test(error.message)?'Confirme d\'abord ton adresse avec le lien reçu par courriel.':'Adresse ou mot de passe incorrect.');startApp(data.session)});
+    if(error)return err(/confirm/i.test(error.message)?'Confirme d\'abord ton adresse avec le lien reçu par courriel.':'Adresse ou mot de passe incorrect.');startApp(data.session,true)});
   $('l-up').addEventListener('click',async()=>{const c=creds();if(!c.email||c.password.length<8)return err('Indique ton adresse et un mot de passe d\'au moins 8 caractères.');
     $('l-up').disabled=true;const {data,error}=await sb.auth.signUp(c);$('l-up').disabled=false;
     if(error)return err(/not allowed|disabled/i.test(error.message)?'Les inscriptions sont fermées sur ce carnet.':error.message);
-    if(data.session)return startApp(data.session);
+    if(data.session)return startApp(data.session,true);
     err('Compte créé. Ouvre le lien de confirmation reçu par courriel, puis connecte-toi.');$('l-err').style.color='var(--success)'});
 }
-function startApp(session){
+function startApp(session,unlocked){
+  if(!unlocked&&session&&LS.get(K.lock,false)&&LS.get(K.passkey,false)&&HAS_WEBAUTHN){if(session){uid=session.user.id;email=session.user.email||''}return showLock()}
   if(session){uid=session.user.id;email=session.user.email||'';LS.set(K.uid,uid);LS.set(K.email,email)}
   if(S.tab==='budgets'||S.tab==='tips')S.tab='plan';
   $('gate').hidden=true;$('app').hidden=false;render();
@@ -976,10 +1065,10 @@ async function init(){
   const cfg=window.CARNET_CONFIG||{};
   if(!window.supabase){if(uid)return startApp(null);return gate(band+`<div class="body"><p>Connexion impossible pour le moment. Vérifie ta connexion Internet puis recharge la page.</p></div>`)}
   if(!cfg.SUPABASE_URL||!cfg.SUPABASE_ANON_KEY)return showSetup();
-  sb=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'cd2-auth'}});
+  sb=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'cd2-auth',storage:authStore}});
   const {data}=await sb.auth.getSession();
   if(data.session)startApp(data.session);
-  else if(uid&&!navigator.onLine)startApp(null);
+  else if(uid&&!navigator.onLine&&remember())(LS.get(K.lock,false)&&LS.get(K.passkey,false)?showLock():startApp(null));
   else showLogin();
 }
 init();

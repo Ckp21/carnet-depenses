@@ -299,3 +299,35 @@ table.compact td:first-child{white-space:normal}
 .brand-mark svg{width:32px;height:32px}
 .band-mark svg{width:56px;height:56px;margin-bottom:16px}
 .btn-action{background:var(--orange);color:var(--white);border:none}
+
+/* Comportement d'application sur iPhone : pas de rebond, pas de zoom, pas de surlignage */
+html{overscroll-behavior:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+body{overscroll-behavior:none}
+html.modal,html.modal body{overflow:hidden;height:100%}
+body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:var(--forest-900);z-index:9}
+button,nav,.rowbtn,.pill,.over,label.chip span{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,select,textarea{font-size:16px!important}
+.amount input{font-size:40px!important}
+form.sheet{overscroll-behavior:contain}
+
+/* Sécurité */
+.switch{position:relative;display:inline-flex;justify-self:end}
+.switch input{position:absolute;opacity:0;width:52px;height:32px;margin:0;cursor:pointer}
+.switch span{width:52px;height:32px;border-radius:999px;background:var(--mist-200);position:relative;transition:background .12s var(--ease)}
+.switch span::after{content:"";position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:var(--white);transition:transform .24s var(--ease)}
+.switch input:checked+span{background:var(--forest-600)}
+.switch input:checked+span::after{transform:translateX(20px)}
+.switch input:focus-visible+span{outline:2px solid var(--forest-600);outline-offset:2px}
+.check{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink-700)}
+.check input{width:20px;height:20px;accent-color:var(--forest-600)}
+.or{display:flex;align-items:center;gap:12px;margin:0;color:var(--ink-500);font-size:12px}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--filet)}
+.steps ol{margin:8px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.steps .ic{vertical-align:-3px}
+.lock-screen{min-height:100vh;min-height:100dvh;background:var(--forest-900);color:var(--white);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding-inline:24px;text-align:center}
+.lock-screen h1{margin:0;font-size:28px;font-weight:800;letter-spacing:-.035em}
+.lock-screen h1 em{font-style:normal;color:var(--orange)}
+.lock-screen .band-mark svg{margin:0}
+.lock-screen .err{color:#F3B1AE}
+.lock-screen .linkbtn{color:var(--forest-100)}
+.form-row>.pill{justify-self:end}

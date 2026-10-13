@@ -1,5 +1,11 @@
 # Historique des versions
 
+## 2.2 (octobre 2026)
+- Connexion avec Face ID (clés d'accès Supabase), verrouillage à l'ouverture et après 2 minutes en arrière-plan, déverrouillage biométrique aussi hors ligne.
+- Option « Rester connecté sur cet appareil » ; adresse mémorisée ; mot de passe confié au trousseau du téléphone, jamais à l'application.
+- Comportement d'application sur iPhone : pas de zoom, pas de rebond de l'arrière-plan, fond figé quand une fenêtre est ouverte, barre d'état verte, guide d'installation depuis Safari.
+- Bibliothèque Supabase mise à jour (2.117.2).
+
 ## 2.1 (octobre 2026)
 - Refonte selon la charte graphique : Vert #04382A, Orange #F47521, Brume, Montserrat (repli officiel de Gotham), cartes arrondies sans ombre, boutons en pilule, un seul élément orange par écran, icônes Lucide avec libellé, messages en quatre tons avec icône.
 - Portefeuilles (Espèces, MTN MoMo, Airtel Money, Banque/Carte, Épargne) avec soldes de départ et mouvements : transferts, tontines, prêts, dettes, projets. Les frais deviennent des « Frais financiers ».

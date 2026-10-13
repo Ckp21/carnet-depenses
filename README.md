@@ -69,6 +69,20 @@ flowchart LR
 3. *Réglages > Restaurer un fichier* : importer `data/import-v1.json` pour reprendre les données de la V1.
 4. Installer l'application : sur Android, menu ⋮ puis *Installer l'application* ; sur iPhone, *Partager* puis *Sur l'écran d'accueil*.
 
+## 3 bis. Activer Face ID (une seule fois)
+
+Dans Supabase, *Authentication > Passkeys* : activer, puis renseigner
+
+| Champ | Valeur |
+|---|---|
+| Relying Party Display Name | Carnet de dépenses |
+| Relying Party ID | ckp21.github.io |
+| Relying Party Origins | https://ckp21.github.io |
+
+Ensuite, dans l'application : *Réglages > Sécurité > Connexion avec Face ID > Activer*.
+
+> Ne jamais modifier le Relying Party ID après coup : les clés déjà créées deviendraient inutilisables.
+
 ## 4. Sécurité
 
 - Chaque ligne de la base porte l'identifiant de son propriétaire. Les règles RLS empêchent tout autre compte de la lire ou de la modifier.
