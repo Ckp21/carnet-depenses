@@ -1,3 +1,4 @@
+if(window.top!==window.self){document.documentElement.hidden=true;try{window.top.location=window.self.location.href}catch(e){}}
 'use strict';
 /* Carnet de dépenses V2.1
    Les données sont gardées en cache sur le téléphone (lecture et saisie hors ligne). Chaque modification
@@ -399,7 +400,7 @@ function upcoming(days=10){
   return out.sort((a,b)=>a.date<b.date?-1:1);
 }
 function buildICS(){
-  const esc2=x=>String(x).replace(/[\\;,]/g,m=>'\\'+m).replace(/\n/g,' ');
+  const esc2=x=>String(x).replace(/[\\;,]/g,m=>'\\'+m).replace(/[\r\n]+/g,' ');
   const dt=iso=>iso.replace(/-/g,''), stamp=new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z', ev=[];
   const add=(uid,date,title,desc,rule)=>ev.push(['BEGIN:VEVENT',`UID:${uid}@carnet-depenses`,`DTSTAMP:${stamp}`,`DTSTART;VALUE=DATE:${dt(date)}`,`SUMMARY:${esc2(title)}`,`DESCRIPTION:${esc2(desc)}`,rule?`RRULE:${rule}`:null,'BEGIN:VALARM','ACTION:DISPLAY',`DESCRIPTION:${esc2(title)}`,'TRIGGER:-PT15H','END:VALARM','END:VEVENT'].filter(Boolean).join('\r\n'));
   for(const r of Object.values(D.recurring))if(r.active)add('rec-'+r.id,nextDate(r.day,todayISO()),r.label+' : '+fmtN(r.amount+(r.fee||0))+' FCFA','Dépense récurrente du Carnet de dépenses',`FREQ=MONTHLY;BYMONTHDAY=${r.day}`);
@@ -621,7 +622,7 @@ function planRow(p){
       <div class="meta num">${s.ratio>=1?'Objectif atteint.':s.monthly?`À mettre de côté : <b>${fmt(s.monthly)}</b> par mois pour tenir l'échéance.`:'Ajoute une échéance pour connaître l\'effort mensuel.'}</div>
       <div class="actions"><button type="button" class="btn sm" data-newmove="project" data-ref="${esc(p.id)}">Verser</button></div></div>`}
   if(p.type==='tontine'){const d=p.data||{}, got=s.received>=s.pot;
-    return `<div class="plan"><div class="head"><div><b>${esc(p.name)}</b><div class="meta num">${fmt(p.amount)} par tour · ${d.frequency==='hebdomadaire'?'chaque semaine':'chaque mois'} · ${d.members} membres · mon tour : ${d.turn}</div></div>${got?pill('success','Reçu'):del}</div>
+    return `<div class="plan"><div class="head"><div><b>${esc(p.name)}</b><div class="meta num">${fmt(p.amount)} par tour · ${d.frequency==='hebdomadaire'?'chaque semaine':'chaque mois'} · ${esc(d.members)} membres · mon tour : ${esc(d.turn)}</div></div>${got?pill('success','Reçu'):del}</div>
       <div class="meta num">Réception ${got?'faite':'prévue le <b>'+dLong(s.receive)+'</b>'} : ${fmt(s.pot)} · cotisé ${fmt(s.paid)} · fin le ${dLong(s.end)}</div>
       <div class="actions"><button type="button" class="btn sm" data-newmove="tontine_out" data-ref="${esc(p.id)}">Cotiser</button><button type="button" class="btn sm" data-newmove="tontine_in" data-ref="${esc(p.id)}">Recevoir</button></div></div>`}
   const isLoan=p.type==='loan', late=s.due&&s.left>0&&s.due<todayISO();
@@ -1091,7 +1092,7 @@ function download(name,text,type){const blob=new Blob([text],{type});const a=doc
 function exportCSV(scope){
   const list=(scope==='month'?monthItems(S.month):allItems()).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
   if(!list.length)return toast('Aucune dépense à exporter');
-  const q=s=>'"'+String(s??'').replace(/"/g,'""')+'"';
+  const q=s=>{let v=String(s??'');if(/^[=+\-@\t\r]/.test(v))v="'"+v;return '"'+v.replace(/"/g,'""')+'"'};
   const lines=['Date;Catégorie;Nature;Moyen de paiement;Montant (FCFA);Frais (FCFA);Note;Récurrente'];
   for(const e of list)lines.push([dFr(e.date),q(CAT[e.category]?.label||e.category),natureOf(e)==='besoin'?'Besoin':'Envie',q(WAL[e.method]?.label||e.method),e.amount,e.fee||0,q(e.note),e.recurring_id?'oui':''].join(';'));
   lines.push(['','','','Total',sumBy(list,e=>e.amount),sumBy(list,e=>e.fee||0),'',''].join(';'));
@@ -1105,15 +1106,19 @@ function parseBackup(txt){
   const j=JSON.parse(txt);
   if(!j||j.app!=='carnet-depenses')throw new Error('Ce fichier n\'est pas une sauvegarde du Carnet de dépenses.');
   const okD=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d), now=nowISO(), str=(s,n)=>String(s||'').slice(0,n);
-  const ex=(j.expenses||[]).filter(e=>e&&e.id&&e.amount>0&&okD(e.date)).map(e=>({id:String(e.id),amount:Math.round(e.amount),fee:Math.max(0,Math.round(e.fee||0)),category:CAT[e.category]&&e.category!=='frais'?e.category:'autres',method:MET_OK(e.method),nature:e.nature==='besoin'||e.nature==='envie'?e.nature:null,date:e.date,note:str(e.note,120),recurring_id:e.recurring_id||null,created_at:e.created_at||now,updated_at:now}));
-  const inc=(j.incomes||[]).filter(e=>e&&e.id&&e.amount>0&&okD(e.date)).map(e=>({id:String(e.id),amount:Math.round(e.amount),source:SRC[e.source]?e.source:'autre',wallet:WAL[e.wallet]?e.wallet:'banque',date:e.date,note:str(e.note,120),created_at:e.created_at||now,updated_at:now}));
-  const mv=(j.moves||[]).filter(m=>m&&m.id&&MOVES[m.kind]&&m.amount>0&&okD(m.date)).map(m=>({id:String(m.id),kind:m.kind,amount:Math.round(m.amount),fee:Math.max(0,Math.round(m.fee||0)),date:m.date,from_wallet:WAL[m.from_wallet]?m.from_wallet:null,to_wallet:WAL[m.to_wallet]?m.to_wallet:null,ref_id:m.ref_id||null,note:str(m.note,120),created_at:m.created_at||now,updated_at:now}));
-  const pl=(j.plans||[]).filter(p=>p&&p.id&&PLAN_LABEL[p.type]).map(p=>({id:String(p.id),type:p.type,name:str(p.name||'Sans nom',60),amount:Math.max(0,Math.round(p.amount||0)),data:typeof p.data==='object'&&p.data?p.data:{},active:p.active!==false,created_at:p.created_at||now,updated_at:now}));
+  const ex=(j.expenses||[]).filter(e=>e&&SAFE_ID(e.id)&&e.amount>0&&okD(e.date)).map(e=>({id:String(e.id),amount:Math.round(e.amount),fee:Math.max(0,Math.round(e.fee||0)),category:CAT[e.category]&&e.category!=='frais'?e.category:'autres',method:MET_OK(e.method),nature:e.nature==='besoin'||e.nature==='envie'?e.nature:null,date:e.date,note:str(e.note,120),recurring_id:e.recurring_id||null,created_at:e.created_at||now,updated_at:now}));
+  const inc=(j.incomes||[]).filter(e=>e&&SAFE_ID(e.id)&&e.amount>0&&okD(e.date)).map(e=>({id:String(e.id),amount:Math.round(e.amount),source:SRC[e.source]?e.source:'autre',wallet:WAL[e.wallet]?e.wallet:'banque',date:e.date,note:str(e.note,120),created_at:e.created_at||now,updated_at:now}));
+  const mv=(j.moves||[]).filter(m=>m&&SAFE_ID(m.id)&&MOVES[m.kind]&&m.amount>0&&okD(m.date)).map(m=>({id:String(m.id),kind:m.kind,amount:Math.round(m.amount),fee:Math.max(0,Math.round(m.fee||0)),date:m.date,from_wallet:WAL[m.from_wallet]?m.from_wallet:null,to_wallet:WAL[m.to_wallet]?m.to_wallet:null,ref_id:m.ref_id||null,note:str(m.note,120),created_at:m.created_at||now,updated_at:now}));
+  const pl=(j.plans||[]).filter(p=>p&&SAFE_ID(p.id)&&PLAN_LABEL[p.type]).map(p=>({id:String(p.id),type:p.type,name:str(p.name||'Sans nom',60),amount:Math.max(0,Math.round(p.amount||0)),data:cleanData(p.data),active:p.active!==false,created_at:p.created_at||now,updated_at:now}));
   const bud={};for(const [c,v] of Object.entries(j.budgets||{}))if(CAT[c]&&v>0)bud[c]=Math.round(v);
-  const rec=(j.recurring||[]).filter(r=>r&&r.id&&r.amount>0&&r.day>=1&&r.day<=28&&/^\d{4}-\d{2}$/.test(r.last_month||'')).map(r=>({id:String(r.id),label:str(r.label||'Récurrente',60),amount:Math.round(r.amount),fee:Math.round(r.fee||0),category:CAT[r.category]?r.category:'autres',method:MET_OK(r.method),day:r.day,last_month:r.last_month,active:r.active!==false,created_at:r.created_at||now,updated_at:now}));
+  const rec=(j.recurring||[]).filter(r=>r&&SAFE_ID(r.id)&&r.amount>0&&r.day>=1&&r.day<=28&&/^\d{4}-\d{2}$/.test(r.last_month||'')).map(r=>({id:String(r.id),label:str(r.label||'Récurrente',60),amount:Math.round(r.amount),fee:Math.round(r.fee||0),category:CAT[r.category]?r.category:'autres',method:MET_OK(r.method),day:r.day,last_month:r.last_month,active:r.active!==false,created_at:r.created_at||now,updated_at:now}));
   const s=j.settings&&typeof j.settings==='object'?j.settings:null;
-  return {expenses:ex,incomes:inc,moves:mv,plans:pl,budgets:bud,recurring:rec,settings:s?{savings_goal:Math.max(0,Math.round(s.savings_goal||0)),opening:s.opening||{},opening_date:okD(s.opening_date)?s.opening_date:null,emergency_months:s.emergency_months||3,inflation:Number(s.inflation??4)}:null};
+  return {expenses:ex,incomes:inc,moves:mv,plans:pl,budgets:bud,recurring:rec,settings:s?{savings_goal:Math.max(0,Math.round(s.savings_goal||0)),opening:cleanOpening(s.opening),opening_date:okD(s.opening_date)?s.opening_date:null,emergency_months:s.emergency_months||3,inflation:Number(s.inflation??4)}:null};
 }
+const SAFE_ID=i=>/^[A-Za-z0-9_.:-]{1,100}$/.test(String(i))&&!['__proto__','constructor','prototype'].includes(String(i));
+const cleanData=o=>{const out={};if(!o||typeof o!=='object'||Array.isArray(o))return out;for(const [k,v] of Object.entries(o).slice(0,30)){if(!/^[a-z_]{1,24}$/.test(k)||k==='__proto__')continue;if(typeof v==='number'&&isFinite(v))out[k]=v;else if(typeof v==='boolean')out[k]=v;else if(typeof v==='string')out[k]=v.slice(0,60)}return out};
+const cleanOpening=o=>{const out={};if(!o||typeof o!=='object')return out;for(const [k,v] of Object.entries(o)){if(k==='__biens'){if(Array.isArray(v))out.__biens=v.slice(0,100).filter(a=>a&&typeof a==='object').map(a=>({id:SAFE_ID(a.id)?String(a.id):newId(),name:String(a.name||'Bien').slice(0,40),value:Math.max(0,Math.round(Number(a.value)||0))}));continue}
+  if(WAL[k]&&isFinite(Number(v)))out[k]=Math.round(Number(v))}return out};
 const MET_OK=m=>METHODS.some(x=>x[0]===m)?m:'especes';
 function doImport(){
   const p=pendingImport;if(!p)return;pendingImport=null;const now=nowISO();

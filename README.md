@@ -40,6 +40,7 @@ flowchart LR
 |---|---|
 | `index.html`, `styles.css`, `app.js` | L'application |
 | `config.js` | Adresse et clé publique Supabase |
+| `lib/supabase.js` | Bibliothèque supabase-js 2.117.2 (MIT), hébergée ici plutôt que sur un CDN |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Installation et fonctionnement hors ligne |
 | `supabase/schema.sql` | Création des tables et des règles de sécurité |
 | `data/import-v1.json` | Tes données de la V1, prêtes à importer |
@@ -87,7 +88,8 @@ Ensuite, dans l'application : *Réglages > Sécurité > Connexion avec Face ID >
 
 - Chaque ligne de la base porte l'identifiant de son propriétaire. Les règles RLS empêchent tout autre compte de la lire ou de la modifier.
 - La clé publique présente dans `config.js` ne donne accès à rien sans connexion.
-- Le dépôt public ne contient que le code, jamais les données.
+- Le dépôt public ne contient que le code, jamais les données personnelles. Si l'adresse Supabase change, mettre à jour aussi la politique CSP dans `index.html`.
+- Politique CSP : scripts limités à l'application elle-même ; un script injecté ne s'exécute pas.
 - La déconnexion efface la copie locale du téléphone.
 
 ## 5. Mettre à jour l'application

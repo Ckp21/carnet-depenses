@@ -1,5 +1,14 @@
 # Historique des versions
 
+## 2.4.0 (octobre 2026) : sécurité
+- Faille corrigée : un fichier de sauvegarde piégé pouvait exécuter du code dans l'onglet Plan (nombre de membres d'une tontine non échappé). Les données de plan, les soldes et les identifiants sont maintenant assainis à l'import.
+- Politique de sécurité du contenu (CSP) : seul le code de l'application et Supabase sont autorisés, aucun script injecté ne peut s'exécuter.
+- Bibliothèque Supabase hébergée dans le dépôt (lib/supabase.js) : plus de dépendance à un CDN externe.
+- Export CSV : les cellules commençant par = + - @ sont neutralisées (injection de formules Excel).
+- Export calendrier : retours chariot retirés des textes.
+- Identifiants spéciaux (__proto__, constructor) refusés ; anti-cadre contre le détournement de clic ; en-tête Referrer désactivé.
+- supabase/migration-2.4-securite.sql : droits retirés au rôle anonyme, bornes de taille et de valeur côté serveur.
+
 ## 2.3.2 (octobre 2026)
 - Lecture des SMS Airtel Money Congo : montant écrit « CFA 1500.00 », frais « CFA 0.00 », date tirée de la référence (Trans.ID CI… ou Ref MP…), marchand après « a » (DATABUNDLE, CANAL PLUS).
 - Jeu de tests SMS anonymisé (MTN et Airtel) : tests/sms-mobile-money-congo.json.
