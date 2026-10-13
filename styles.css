@@ -331,3 +331,12 @@ form.sheet{overscroll-behavior:contain}
 .lock-screen .err{color:#F3B1AE}
 .lock-screen .linkbtn{color:var(--forest-100)}
 .form-row>.pill{justify-self:end}
+
+/* V2.3 */
+.eye{display:inline-flex;align-items:center;gap:4px;border:1px solid rgba(255,255,255,.24);background:transparent;color:var(--forest-100);border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700}
+#smsText{border:1px solid var(--filet);border-radius:12px;padding:12px;font:inherit;font-size:16px;width:100%;resize:vertical;color:var(--ink-900)}
+#smsText:focus{outline:none;border-color:var(--forest-600)}
+#smsBox .linkbtn{display:inline-flex;align-items:center;gap:8px}
+#catHint{color:var(--forest-600);font-weight:500}
+html.discreet main .num,html.discreet main .big,html.discreet main .v,html.discreet main .stat b,html.discreet main td.amt,html.discreet main .bar-val,html.discreet main .chart text,html.discreet main .rowbtn b{filter:blur(8px);transition:filter .12s}
+html.discreet main .over,html.discreet main .eye{filter:none}

@@ -1,7 +1,7 @@
-# Carnet de dépenses V2.1
+# Carnet de dépenses V2.3
 
 Application personnelle de gestion des dépenses en FCFA, installable sur téléphone et utilisable hors ligne.
-Version 2.1, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
+Version 2.3, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
 
 ---
 

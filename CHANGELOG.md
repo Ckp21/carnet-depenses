@@ -1,5 +1,14 @@
 # Historique des versions
 
+## 2.3 (octobre 2026)
+- Saisie depuis un SMS MTN MoMo ou Airtel Money : montant, frais, date, opérateur et type (paiement, argent reçu, retrait) remplis automatiquement. Un SMS collé dans la fenêtre est reconnu tout seul.
+- Catégorie proposée d'après la note (mots-clés locaux et historique des dépenses).
+- Alerte de rythme quand le reste à vivre se consomme plus vite que le mois.
+- « Chaque franc a une mission » : reste à affecter après budgets, épargne, tontines et projets, avec envoi du reste vers l'épargne.
+- Patrimoine net : liquidités, biens (parcelle, véhicule), créances et dettes.
+- Échéances des 10 prochains jours et export vers le calendrier du téléphone (fichier .ics avec rappels).
+- Mode discret qui masque les montants.
+
 ## 2.2 (octobre 2026)
 - Connexion avec Face ID (clés d'accès Supabase), verrouillage à l'ouverture et après 2 minutes en arrière-plan, déverrouillage biométrique aussi hors ligne.
 - Option « Rester connecté sur cet appareil » ; adresse mémorisée ; mot de passe confié au trousseau du téléphone, jamais à l'application.

@@ -52,10 +52,13 @@
       <button type="button" data-kind="income" aria-pressed="false">Entrée</button>
       <button type="button" data-kind="move" aria-pressed="false">Mouvement</button>
     </div>
+    <div id="smsBox" hidden><button type="button" class="linkbtn" data-act="smsToggle" id="smsToggle"></button>
+      <div id="smsArea" class="add" hidden><label class="inp">SMS reçu de MTN MoMo ou Airtel Money<textarea id="smsText" rows="4" placeholder="Colle ici le SMS de la transaction"></textarea></label>
+        <div class="actions"><button type="button" class="btn sm" data-act="smsParse">Analyser le SMS</button></div><p class="hint" id="smsInfo" hidden></p></div></div>
     <label class="inp" id="fs-mkind" hidden>type de mouvement<select id="f-mkind"></select></label>
     <label class="amount"><input id="f-amount" inputmode="numeric" autocomplete="off" placeholder="0" aria-label="Montant"><span>FCFA</span></label>
     <div class="quick" id="quick"></div>
-    <fieldset id="fs-cat"><legend>Catégorie</legend><div class="chips" id="f-cats"></div></fieldset>
+    <fieldset id="fs-cat"><legend>Catégorie</legend><div class="chips" id="f-cats"></div><p class="hint" id="catHint" hidden></p></fieldset>
     <fieldset id="fs-nat"><legend>Nature</legend><div class="chips" id="f-nats"></div></fieldset>
     <fieldset id="fs-src" hidden><legend>Source</legend><div class="chips" id="f-srcs"></div></fieldset>
     <fieldset id="fs-met"><legend>Moyen de paiement</legend><div class="chips" id="f-methods"></div></fieldset>
