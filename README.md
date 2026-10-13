@@ -1,7 +1,7 @@
-# Carnet de dépenses V2
+# Carnet de dépenses V2.1
 
 Application personnelle de gestion des dépenses en FCFA, installable sur téléphone et utilisable hors ligne.
-Version 2.0, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
+Version 2.1, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
 
 ---
 
@@ -16,6 +16,15 @@ Version 2.0, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
 - **Sauvegarde et restauration** complètes en fichier JSON, export CSV pour Excel.
 - **Hors ligne** : saisie possible sans connexion, envoi automatique au retour du réseau.
 - **Installable** sur l'écran d'accueil (PWA).
+
+## 1 bis. Nouveautés de la V2.1
+
+- Design conforme à la charte graphique (registre « Outil »), police Montserrat.
+- Portefeuilles et mouvements : transferts, tontines, prêts, dettes, projets d'épargne.
+- Budget par jour, reste à vivre, taux d'épargne, fonds d'urgence, dépenses inhabituelles.
+- Onglet Analyse : graphiques et statistiques sur 3, 6 ou 12 mois, pouvoir d'achat corrigé de l'inflation.
+
+**Mise à jour d'une base V2.0** : exécuter une fois `supabase/migration-2.1.sql` dans *SQL Editor*, avant ou juste après la mise en ligne.
 
 ## 2. Architecture
 

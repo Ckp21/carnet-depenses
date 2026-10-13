@@ -1,5 +1,14 @@
 # Historique des versions
 
+## 2.1 (octobre 2026)
+- Refonte selon la charte graphique : Vert #04382A, Orange #F47521, Brume, Montserrat (repli officiel de Gotham), cartes arrondies sans ombre, boutons en pilule, un seul élément orange par écran, icônes Lucide avec libellé, messages en quatre tons avec icône.
+- Portefeuilles (Espèces, MTN MoMo, Airtel Money, Banque/Carte, Épargne) avec soldes de départ et mouvements : transferts, tontines, prêts, dettes, projets. Les frais deviennent des « Frais financiers ».
+- Besoin ou envie sur chaque dépense, proposé automatiquement selon la catégorie.
+- Indicateurs : budget par jour, reste à vivre, taux d'épargne, fonds d'urgence en mois couverts, dépenses inhabituelles, alertes d'échéance.
+- Plan : projets d'épargne avec effort mensuel, tontines avec date du tour, prêts et dettes.
+- Analyse sur 3, 6 ou 12 mois : statistiques, entrées et dépenses, rythme du mois, catégories, écarts à la moyenne, jour de la semaine, besoins et envies, pouvoir d'achat corrigé de l'inflation, moyens de paiement.
+- Migration de base : supabase/migration-2.1.sql. L'application garde les saisies en attente tant que la migration n'est pas faite.
+
 ## 2.0 (octobre 2026)
 - Application installable (PWA) hébergée sur GitHub Pages, données dans Supabase avec connexion par e-mail et mot de passe.
 - Fonctionnement hors ligne : cache local et file d'attente synchronisée au retour du réseau.

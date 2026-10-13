@@ -4,16 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Carnet de dépenses</title>
-<meta name="description" content="Suivi personnel des dépenses en FCFA : saisie rapide, budgets, épargne et conseils.">
-<meta name="theme-color" content="#4338FF">
+<meta name="description" content="Suivi personnel des dépenses en FCFA : budgets, portefeuilles, épargne, tontines et analyses.">
+<meta name="theme-color" content="#04382A">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Carnet">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700;800&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -23,45 +24,47 @@
 <div id="app" hidden>
   <header class="top">
     <div class="top-row">
-      <div class="brand">carnet <span class="sync" id="syncDot" title="Synchronisé"></span></div>
+      <div class="brand"><b>Carnet de dépenses</b><span class="sync" id="sync"><i></i><span id="syncTxt">synchronisé</span></span></div>
+      <button type="button" class="hbtn" id="setBtn" data-tab="settings"></button>
+    </div>
+    <div class="top-row" style="margin-top:8px">
       <div class="month">
-        <button type="button" id="prevM" aria-label="Mois précédent">‹</button>
+        <button type="button" id="prevM" aria-label="Mois précédent"></button>
         <span id="monthLabel"></span>
-        <button type="button" id="nextM" aria-label="Mois suivant">›</button>
+        <button type="button" id="nextM" aria-label="Mois suivant"></button>
       </div>
     </div>
   </header>
 
   <main id="main"></main>
 
-  <button class="fab" id="fab" type="button" aria-label="Ajouter">+</button>
-
-  <nav class="tabs" aria-label="Sections">
-    <button type="button" data-tab="dash">Accueil</button>
-    <button type="button" data-tab="list">Dépenses</button>
-    <button type="button" data-tab="budgets">Budget</button>
-    <button type="button" data-tab="tips">Conseils</button>
-    <button type="button" data-tab="settings">Réglages</button>
-  </nav>
+  <button class="fab" id="fab" type="button"></button>
+  <nav class="tabs" id="tabs" aria-label="Sections"></nav>
 </div>
 
 <div class="sheet-wrap" id="sheetWrap" hidden>
   <div class="scrim" data-act="close"></div>
   <form class="sheet" id="f" novalidate>
-    <div class="sheet-head"><h2 id="sheetTitle">Nouvelle dépense</h2><button type="button" class="x" data-act="close">Fermer</button></div>
-    <div class="seg" id="kindSeg" role="group" aria-label="Type">
+    <div class="sheet-head"><h2 id="sheetTitle">Nouvelle dépense</h2><button type="button" class="x" data-act="close" aria-label="Fermer" id="closeBtn"></button></div>
+    <div class="seg" id="kindSeg" role="group" aria-label="Type d'opération">
       <button type="button" data-kind="expense" aria-pressed="true">Dépense</button>
-      <button type="button" data-kind="income" aria-pressed="false">Entrée d'argent</button>
+      <button type="button" data-kind="income" aria-pressed="false">Entrée</button>
+      <button type="button" data-kind="move" aria-pressed="false">Mouvement</button>
     </div>
+    <label class="inp" id="fs-mkind" hidden>type de mouvement<select id="f-mkind"></select></label>
     <label class="amount"><input id="f-amount" inputmode="numeric" autocomplete="off" placeholder="0" aria-label="Montant"><span>FCFA</span></label>
     <div class="quick" id="quick"></div>
-    <fieldset id="fs-cat"><legend>catégorie</legend><div class="chips" id="f-cats"></div></fieldset>
-    <fieldset id="fs-src" hidden><legend>source</legend><div class="chips" id="f-srcs"></div></fieldset>
-    <fieldset id="fs-met"><legend>moyen de paiement</legend><div class="chips" id="f-methods"></div></fieldset>
-    <label class="inp" id="fs-fee" hidden>frais mobile money (FCFA)<input id="f-fee" inputmode="numeric" placeholder="0"></label>
+    <fieldset id="fs-cat"><legend>Catégorie</legend><div class="chips" id="f-cats"></div></fieldset>
+    <fieldset id="fs-nat"><legend>Nature</legend><div class="chips" id="f-nats"></div></fieldset>
+    <fieldset id="fs-src" hidden><legend>Source</legend><div class="chips" id="f-srcs"></div></fieldset>
+    <fieldset id="fs-met"><legend>Moyen de paiement</legend><div class="chips" id="f-methods"></div></fieldset>
+    <fieldset id="fs-from" hidden><legend id="lg-from">Depuis</legend><div class="chips" id="f-from"></div></fieldset>
+    <fieldset id="fs-to" hidden><legend id="lg-to">Vers</legend><div class="chips" id="f-to"></div></fieldset>
+    <label class="inp" id="fs-plan" hidden><span id="lg-plan">Concerne</span><select id="f-plan"></select></label>
+    <label class="inp" id="fs-fee" hidden>Frais Mobile Money (FCFA)<input id="f-fee" inputmode="numeric" placeholder="0"></label>
     <div class="grid2">
-      <label class="inp">date<input type="date" id="f-date"></label>
-      <label class="inp">note<input id="f-note" maxlength="120" placeholder="Ex. marché Total"></label>
+      <label class="inp">Date<input type="date" id="f-date"></label>
+      <label class="inp">Note<input id="f-note" maxlength="120" placeholder="Ex. marché Total"></label>
     </div>
     <p class="err" id="f-err" hidden></p>
     <div class="sheet-actions">
