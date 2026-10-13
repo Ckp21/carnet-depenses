@@ -1,0 +1,78 @@
+# Carnet de dépenses V2
+
+Application personnelle de gestion des dépenses en FCFA, installable sur téléphone et utilisable hors ligne.
+Version 2.0, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
+
+---
+
+## 1. Ce que fait la V2
+
+- **Saisie rapide** des dépenses et des **entrées d'argent** (salaire, prime, mission, autre), avec montants rapides.
+- **Frais Mobile Money** : champ dédié pour MTN MoMo et Airtel Money, total du mois et de l'année.
+- **Dépenses récurrentes** : loyer, forfait, factures, ajoutés automatiquement chaque mois au jour choisi.
+- **Objectif d'épargne** : épargne du mois, cumul depuis le début, graphique sur 6 mois.
+- **Bilan mensuel** : résumé du mois précédent affiché la première semaine du mois, et dans l'onglet Conseils.
+- **Conseils Congo** : projection de fin de mois, propositions par poste, comparaison INS Brazzaville, budgets proposés.
+- **Sauvegarde et restauration** complètes en fichier JSON, export CSV pour Excel.
+- **Hors ligne** : saisie possible sans connexion, envoi automatique au retour du réseau.
+- **Installable** sur l'écran d'accueil (PWA).
+
+## 2. Architecture
+
+```mermaid
+flowchart LR
+  T[Téléphone<br/>application installée] -- lecture et saisie --> C[(Cache local)]
+  C -- file d'attente --> S[(Supabase<br/>base PostgreSQL)]
+  S -- synchronisation --> C
+  G[GitHub Pages] -- code de l'application --> T
+```
+
+| Élément | Rôle |
+|---|---|
+| `index.html`, `styles.css`, `app.js` | L'application |
+| `config.js` | Adresse et clé publique Supabase |
+| `sw.js`, `manifest.webmanifest`, `icons/` | Installation et fonctionnement hors ligne |
+| `supabase/schema.sql` | Création des tables et des règles de sécurité |
+| `data/import-v1.json` | Tes données de la V1, prêtes à importer |
+| `docs/` | Cahier des charges, modèle de données, repères Congo |
+
+## 3. Mise en service (une seule fois)
+
+### 3.1 Supabase
+
+1. Créer un projet sur supabase.com, région Europe.
+2. *SQL Editor > New query* : coller le contenu de `supabase/schema.sql`, puis *Run*.
+3. *Authentication > URL Configuration* : mettre l'adresse GitHub Pages dans *Site URL* (exemple : `https://ton-compte.github.io/carnet-depenses/`).
+4. *Project Settings > API* : copier l'**URL du projet** et la **clé publique** (`anon` ou `publishable`) dans `config.js`.
+
+> Ne jamais mettre la clé `service_role` dans le code : elle contourne toutes les protections.
+
+### 3.2 GitHub Pages
+
+1. Pousser le contenu de ce dossier dans le dépôt `carnet-depenses` (branche `main`).
+2. *Settings > Pages* : *Source* = *Deploy from a branch*, branche `main`, dossier `/ (root)`.
+3. L'application est disponible après une à deux minutes à l'adresse `https://ton-compte.github.io/carnet-depenses/`.
+
+### 3.3 Premier lancement
+
+1. Ouvrir l'adresse sur le téléphone, toucher **Créer mon compte**, confirmer l'e-mail reçu, puis se connecter.
+2. Dans Supabase, *Authentication > Sign In / Providers* : désactiver **Allow new users to sign up**. Plus personne d'autre ne pourra créer de compte.
+3. *Réglages > Restaurer un fichier* : importer `data/import-v1.json` pour reprendre les données de la V1.
+4. Installer l'application : sur Android, menu ⋮ puis *Installer l'application* ; sur iPhone, *Partager* puis *Sur l'écran d'accueil*.
+
+## 4. Sécurité
+
+- Chaque ligne de la base porte l'identifiant de son propriétaire. Les règles RLS empêchent tout autre compte de la lire ou de la modifier.
+- La clé publique présente dans `config.js` ne donne accès à rien sans connexion.
+- Le dépôt public ne contient que le code, jamais les données.
+- La déconnexion efface la copie locale du téléphone.
+
+## 5. Mettre à jour l'application
+
+Modifier les fichiers, puis changer la constante `VERSION` dans `sw.js` (par exemple `carnet-v2.0.1`) avant de pousser. Les téléphones récupèrent la nouvelle version au lancement suivant.
+
+## 6. Limites connues
+
+- Structure de consommation INS de 2011 et prix alimentaires de 2022-2023 (voir `docs/reperes-cout-de-la-vie-congo.md`).
+- En cas de modification du même élément sur deux appareils hors ligne, la dernière synchronisation l'emporte.
+- Le bilan mensuel est calculé dans l'application ; il n'est pas envoyé par e-mail.
