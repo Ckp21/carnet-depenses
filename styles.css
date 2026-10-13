@@ -14,10 +14,9 @@
   --success:#0F9D58; --success-bg:#E7F6EE; --warning:#E0930F; --warning-bg:#FDF4E3; --danger:#DC241F; --danger-bg:#FDE9E8; --info:#1570EF; --info-bg:#EAF2FE;
   --f:"Montserrat", system-ui, -apple-system, "Segoe UI", sans-serif;
   --ease:cubic-bezier(.22,1,.36,1);
-  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;background:var(--forest-900)}
 body{margin:0;background:var(--mist-50);color:var(--ink-900);font-family:var(--f);font-size:15px;line-height:1.55;font-weight:400;font-variant-numeric:tabular-nums}
 [hidden]{display:none!important}
 img{max-width:100%}
@@ -30,7 +29,7 @@ button:disabled{opacity:.5;cursor:default}
 .ic.s24{width:24px;height:24px}
 
 /* En-tête vert */
-header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--forest-900);color:var(--white);padding:12px 16px}
+header.top{position:relative;flex:none;z-index:5;background:var(--forest-900);color:var(--white);padding:12px 16px 12px;padding-top:calc(12px + env(safe-area-inset-top,0px))}
 .top-row{display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:720px;margin:0 auto}
 .brand{display:flex;flex-direction:column;gap:0;min-width:0}
 .brand b{font-weight:700;font-size:16px;letter-spacing:-.01em}
@@ -44,7 +43,8 @@ header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background
 .month button{width:36px;height:36px;border-radius:999px;border:1px solid rgba(255,255,255,.24);background:transparent;color:var(--white);display:inline-flex;align-items:center;justify-content:center}
 .month span{min-width:120px;text-align:center;font-weight:700;font-size:14px;text-transform:capitalize}
 
-main{max-width:720px;margin:0 auto;padding-inline:16px;padding-block:16px calc(112px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
+main{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:none;padding-inline:max(16px,calc((100% - 720px)/2));padding-block:16px 104px;display:flex;flex-direction:column;gap:12px}
+main>*{flex:none}
 @media (prefers-reduced-motion:no-preference){ main>*{animation:fadeup .32s var(--ease) both} @keyframes fadeup{from{opacity:0;transform:translateY(8px)}} }
 
 /* Cartes */
@@ -184,17 +184,17 @@ tfoot td{font-weight:700;background:var(--mist-50);border-bottom:none}
 .err{margin:0;color:var(--danger);font-size:13px;font-weight:500}
 
 /* Navigation basse : pilules + icône + libellé */
-nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--white);border-top:1px solid var(--filet);padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+nav.tabs{position:relative;flex:none;z-index:6;background:var(--white);border-top:1px solid var(--filet);padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
 nav.tabs button{border:none;background:none;padding:4px 0 8px;border-radius:16px;font-size:11px;font-weight:500;color:var(--ink-500);display:flex;flex-direction:column;align-items:center;gap:4px}
 nav.tabs button .pil{width:56px;height:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;transition:background .12s var(--ease)}
 nav.tabs button[aria-current="page"]{color:var(--forest-900);font-weight:700}
 nav.tabs button[aria-current="page"] .pil{background:var(--forest-100)}
 /* Le seul élément orange de chaque vue (C-03) */
-.fab{position:fixed;right:16px;bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:7;height:56px;padding:0 20px 0 16px;border-radius:999px;border:none;background:var(--orange);color:var(--white);font-weight:700;font-size:15px;display:inline-flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(4,56,42,.24)}
+#app .fab{position:absolute;right:16px;bottom:16px;z-index:7;height:56px;padding:0 20px 0 16px;border-radius:999px;border:none;background:var(--orange);color:var(--white);font-weight:700;font-size:15px;display:inline-flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(4,56,42,.24)}
 .fab .ic{width:24px;height:24px;stroke-width:2}
 
 /* Feuille de saisie (fenêtre) */
-.sheet-wrap{position:fixed;inset:0;z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet-wrap{position:fixed;top:0;left:0;right:0;height:100vh;height:100lvh;z-index:20;display:flex;align-items:flex-end;justify-content:center}
 .scrim{position:absolute;inset:0;background:rgba(14,26,20,.5);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 form.sheet{position:relative;width:100%;max-width:560px;max-height:92%;overflow-y:auto;background:var(--white);border-radius:24px 24px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:16px}
 @media (prefers-reduced-motion:no-preference){ form.sheet{animation:up .32s var(--ease)} @keyframes up{from{transform:translateY(24px);opacity:.6}} }
@@ -303,8 +303,7 @@ table.compact td:first-child{white-space:normal}
 /* Comportement d'application sur iPhone : pas de rebond, pas de zoom, pas de surlignage */
 html{overscroll-behavior:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 body{overscroll-behavior:none}
-html.modal,html.modal body{overflow:hidden;height:100%}
-body::before{content:"";position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top,0px);background:var(--forest-900);z-index:9}
+html.modal main{overflow:hidden}
 button,nav,.rowbtn,.pill,.over,label.chip span{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 input,select,textarea{font-size:16px!important}
 .amount input{font-size:40px!important}
@@ -338,5 +337,12 @@ form.sheet{overscroll-behavior:contain}
 #smsText:focus{outline:none;border-color:var(--forest-600)}
 #smsBox .linkbtn{display:inline-flex;align-items:center;gap:8px}
 #catHint{color:var(--forest-600);font-weight:500}
-html.discreet main .num,html.discreet main .big,html.discreet main .v,html.discreet main .stat b,html.discreet main td.amt,html.discreet main .bar-val,html.discreet main .chart text,html.discreet main .rowbtn b{filter:blur(8px);transition:filter .12s}
-html.discreet main .over,html.discreet main .eye{filter:none}
+
+/* Structure d'application : en-tête, scène défilante, barre d'onglets. Rien ne bouge avec le contenu. */
+#app{position:fixed;top:0;left:0;right:0;height:100vh;height:100lvh;display:flex;flex-direction:column;background:var(--mist-50);overflow:hidden;z-index:1}
+.stage{position:relative;flex:1 1 auto;min-height:0}
+nav.tabs{padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+html:has(#app:not([hidden])) body{height:100%;overflow:hidden}
+.gate .band{padding-top:calc(48px + env(safe-area-inset-top,0px))}
+.gate .body{padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+body{min-height:100vh}

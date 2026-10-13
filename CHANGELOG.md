@@ -1,12 +1,20 @@
 # Historique des versions
 
-## 2.4.0 (octobre 2026) : sécurité
+## 2.4.0 (octobre 2026)
+- Portefeuilles personnalisables : renommer et recolorer ceux qui existent, en ajouter (type, couleur, solde de départ), les archiver quand leur solde est à 0 et les restaurer. L'historique est toujours conservé.
+- Mode discret refait : les montants sont remplacés par des étoiles (****) partout, comme dans une application bancaire. Les champs de saisie restent lisibles.
+- Structure d'application : en-tête vert jusqu'en haut de l'écran (plus de bande floue), barre d'onglets et bouton Ajouter immobiles quel que soit le contenu, seul le contenu défile.
+- Prix de repère : la fibre Congo Telecom et CanalBox passent à 15 000 FCFA par mois (offre d'entrée).
+
+### Sécurité
 - Faille corrigée : un fichier de sauvegarde piégé pouvait exécuter du code dans l'onglet Plan (nombre de membres d'une tontine non échappé). Les données de plan, les soldes et les identifiants sont maintenant assainis à l'import.
 - Politique de sécurité du contenu (CSP) : seul le code de l'application et Supabase sont autorisés, aucun script injecté ne peut s'exécuter.
 - Bibliothèque Supabase hébergée dans le dépôt (lib/supabase.js) : plus de dépendance à un CDN externe.
 - Export CSV : les cellules commençant par = + - @ sont neutralisées (injection de formules Excel).
 - Export calendrier : retours chariot retirés des textes.
 - Identifiants spéciaux (__proto__, constructor) refusés ; anti-cadre contre le détournement de clic ; en-tête Referrer désactivé.
+- Valeurs inattendues venant de la base : repli sûr à l'affichage sans toucher aux données. Tables de correspondance sans prototype.
+- Fichier data/import-v1.json retiré du dépôt public ; empreinte SHA-384 de la bibliothèque dans lib/LISEZ-MOI.txt.
 - supabase/migration-2.4-securite.sql : droits retirés au rôle anonyme, bornes de taille et de valeur côté serveur.
 
 ## 2.3.2 (octobre 2026)

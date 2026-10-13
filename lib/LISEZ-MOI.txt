@@ -1,0 +1,6 @@
+supabase-js 2.117.2 (licence MIT, https://github.com/supabase/supabase-js)
+Fichier : dist/umd/supabase.js du paquet npm @supabase/supabase-js@2.117.2
+Empreinte SHA-384 : sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok
+Vérification : npm pack @supabase/supabase-js@2.117.2, extraire, puis
+  openssl dgst -sha384 -binary package/dist/umd/supabase.js | openssl base64 -A
+Mise à jour : remplacer le fichier, recalculer l'empreinte, changer VERSION dans sw.js.

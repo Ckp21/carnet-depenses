@@ -26,7 +26,7 @@ Source : https://interholco.com/images/pdfs/IHC-Sustainability-Rep-2022/Indice-J
 - SMIG : 70 400 FCFA par mois depuis le 1er janvier 2025 (avant : 50 400). https://africa24tv.com/?p=133603
 - Bus : 150 FCFA ; taxi : 1 000 FCFA la course (Brazzaville, juillet 2024). https://fr.allafrica.com/stories/202407300189.html
 - Électricité E²C basse tension T1 à T3 : 49,08 FCFA le kWh HT + montant fixe de 2 268 à 2 550 FCFA. https://liziba.cg/en/facteur-de-production-electricite/
-- Fibre Congo Telecom 512 Mbit/s : 35 000 FCFA par mois. https://liziba.cg/en/facteur-de-production-telecommunication/
+- Fibre Congo Telecom et CanalBox, offre d'entrée : 15 000 FCFA par mois (prix fixé en octobre 2026, communiqué par l'utilisateur). Ancien repère : 35 000 FCFA pour 512 Mbit/s, https://liziba.cg/en/facteur-de-production-telecommunication/
 - Riz sac de 25 kg : 18 000 FCFA (février 2023) ; huile 1 L : 1 350 FCFA (février 2022).
 - Location : 2 mois de caution + 1 mois de frais d'agence.
 - Revenu pour vivre décemment en ville : 200 000 à 300 000 FCFA (indicatif). https://africarrieres.com/congo/fr/guide/decouvrir/cout-de-la-vie

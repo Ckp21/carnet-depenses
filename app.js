@@ -45,16 +45,19 @@ const CATS=[
   ["famille","Famille & dons","#93340A"],["loisirs","Loisirs & sorties","#CD8309"],["vetements","Vêtements","#4C5D54"],
   ["education","Éducation","#7CC79C"],["autres","Autres","#9AA8A1"]
 ];
-const CAT=Object.fromEntries(CATS.map(c=>[c[0],{label:c[1],color:c[2]}]));
+const dict=o=>Object.assign(Object.create(null),o);
+const CAT=dict(Object.fromEntries(CATS.map(c=>[c[0],{label:c[1],color:c[2]}])));
 CAT.frais={label:'Frais financiers',color:'#64756C'};
 const NEED=new Set(['alimentation','transport','logement','factures','communication','sante','education','frais']);
-const WALLETS=[["especes","Espèces","#067C3A"],["mtn","MTN MoMo","#F5C04A"],["airtel","Airtel Money","#93340A"],["banque","Banque/Carte","#1570EF"],["epargne","Épargne","#04382A"]];
-const WAL=Object.fromEntries(WALLETS.map(w=>[w[0],{label:w[1],color:w[2]}]));
-const METHODS=WALLETS.slice(0,4);
+// Portefeuilles : 5 de base, personnalisables, plus ceux que tu ajoutes (stockés dans settings.opening.__wallets)
+const WCOLORS=['#067C3A','#F5C04A','#93340A','#1570EF','#04382A','#7C3AED','#DB2777','#0891B2','#64748B','#CD8309'];
+const BASE_WALLETS=[["especes","Espèces","#067C3A","cash"],["mtn","MTN MoMo","#F5C04A","momo"],["airtel","Airtel Money","#93340A","momo"],["banque","Banque/Carte","#1570EF","bank"],["epargne","Épargne","#04382A","savings"]];
+const WKIND={cash:'Liquide',momo:'Mobile Money',bank:'Compte ou carte',other:'Autre'};
+const WSUB={cash:'liquide',momo:'Mobile Money',bank:'compte et carte',other:'portefeuille',savings:''};
+const WALLETS=[], WAL=Object.create(null), METHODS=[], MOMO=new Set();
 const SOURCES=[["salaire","Salaire","#04382A"],["prime","Prime","#3FAE75"],["mission","Mission / freelance","#F5C04A"],["autre","Autre","#9AA8A1"]];
-const SRC=Object.fromEntries(SOURCES.map(s=>[s[0],{label:s[1],color:s[2]}]));
-const MOMO=new Set(['mtn','airtel']);
-const MOVES={
+const SRC=dict(Object.fromEntries(SOURCES.map(s=>[s[0],{label:s[1],color:s[2]}])));
+const MOVES=dict({
   transfer:{label:'Transfert entre portefeuilles',from:true,to:true},
   tontine_out:{label:'Cotisation tontine',from:true,plan:'tontine'},
   tontine_in:{label:'Réception tontine',to:true,plan:'tontine'},
@@ -63,16 +66,20 @@ const MOVES={
   debt_in:{label:'J\'emprunte',to:true,plan:'debt'},
   debt_pay:{label:'Je rembourse une dette',from:true,plan:'debt'},
   project:{label:'Versement sur un projet',from:true,plan:'project',fixedTo:'epargne'}
-};
-const PLAN_LABEL={tontine:'Tontine',loan:'Prêt accordé',debt:'Dette',project:'Projet d\'épargne'};
+});
+const PLAN_LABEL=dict({tontine:'Tontine',loan:'Prêt accordé',debt:'Dette',project:'Projet d\'épargne'});
 
 /* ---------- Utilitaires ---------- */
 const nf=new Intl.NumberFormat('fr-FR');
-const fmt=n=>nf.format(Math.round(n))+' FCFA';
-const fmtN=n=>nf.format(Math.round(n));
+let HIDE=false; // mode discret : les montants affichés deviennent ****
+const fmtNR=n=>nf.format(Math.round(n));
+const fmtRaw=n=>fmtNR(n)+' FCFA';
+const fmt=n=>HIDE?'**** FCFA':fmtRaw(n);
+const fmtN=n=>HIDE?'****':fmtNR(n);
 const fmtS=n=>(n<0?'− ':'')+fmt(Math.abs(n));
 const pctS=(x,d=0)=>(x<0?'−':'')+Math.abs(x*100).toFixed(d).replace('.',',')+' %';
-const shortN=n=>{const a=Math.abs(n),s=n<0?'−':'';return s+(a>=1e6?(a/1e6).toFixed(1).replace('.',',')+' M':a>=1000?Math.round(a/1000)+' k':String(Math.round(a)))};
+const shortN=n=>HIDE?'***':shortRaw(n);
+const shortRaw=n=>{const a=Math.abs(n),s=n<0?'−':'';return s+(a>=1e6?(a/1e6).toFixed(1).replace('.',',')+' M':a>=1000?Math.round(a/1000)+' k':String(Math.round(a)))};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pad=n=>String(n).padStart(2,'0');
 const ymOf=d=>d.getFullYear()+'-'+pad(d.getMonth()+1);
@@ -115,6 +122,22 @@ const authStore={
   removeItem(k){try{localStorage.removeItem(k);sessionStorage.removeItem(k)}catch(e){}}
 };
 let D=Object.assign(EMPTY(),LS.get(K.cache,{}));
+const cfgWallets=()=>Array.isArray((D.settings.opening||{}).__wallets)?D.settings.opening.__wallets:[];
+let wSig='';
+function rebuildWallets(){
+  const byId={};cfgWallets().forEach(w=>{if(w&&w.id)byId[w.id]=w});
+  const mk=(id,label,color,kind,base)=>{const o=byId[id]||{};return {id,label:String(o.label||label).slice(0,30),color:WCOLORS.includes(o.color)?o.color:(WCOLORS.includes(color)?color:'#64748B'),kind:base?kind:(WKIND[o.kind]?o.kind:'other'),archived:!!o.archived&&id!=='especes'&&id!=='epargne'}};
+  const base=BASE_WALLETS.map(([id,l,c,k])=>mk(id,l,c,k,true));
+  const custom=cfgWallets().filter(w=>w&&SAFE_ID(w.id)&&!BASE_WALLETS.some(b=>b[0]===w.id)).slice(0,20).map(w=>mk(w.id,w.label||'Portefeuille',w.color,w.kind,false));
+  const all=[...base.slice(0,4),...custom,base[4]], sig=JSON.stringify(all);
+  if(sig===wSig)return false;wSig=sig;
+  WALLETS.length=0;METHODS.length=0;MOMO.clear();for(const k of Object.keys(WAL))delete WAL[k];
+  for(const w of all){WAL[w.id]={label:w.label,color:w.color,kind:w.kind,archived:w.archived};if(w.kind==='momo')MOMO.add(w.id);
+    if(!w.archived){WALLETS.push([w.id,w.label,w.color,w.kind]);if(w.id!=='epargne')METHODS.push([w.id,w.label,w.color,w.kind])}}
+  return true;
+}
+const METALL=()=>Object.entries(WAL).filter(([k])=>k!=='epargne').map(([k,w])=>[k,w.label,w.color]);
+const lastMet=()=>{const m=LS.get(K.met,'especes');return WAL[m]&&!WAL[m].archived&&m!=='epargne'?m:'especes'};
 D.settings=Object.assign({},DEF_SETTINGS,D.settings);D.moves=D.moves||{};D.plans=D.plans||{};
 let outbox=LS.get(K.outbox,[]);
 let sb=null, uid=LS.get(K.uid,null), email=LS.get(K.email,'');
@@ -238,7 +261,7 @@ function runRecurring(){
 /* ---------- Calculs financiers ---------- */
 const SMIG=70400; // SMIG mensuel depuis le 1er janvier 2025
 const INS_BZV={alimentation:44.4,logfac:9.7,transport:10.0,communication:6.7,vetements:6.9,loisirs:7.6,sante:2.4,education:2.9,divers:9.3};
-const PRICES={bus:150,taxi:1000,kwh:49.08,fibre:35000};
+const PRICES={bus:150,taxi:1000,kwh:49.08,fibre:15000};
 const r500=n=>Math.round(n/500)*500;
 const lin=(x,x0,x1,y0,y1)=>x<=x0?y0:x>=x1?y1:y0+(x-x0)/(x1-x0)*(y1-y0);
 function proposal(R){
@@ -403,11 +426,11 @@ function buildICS(){
   const esc2=x=>String(x).replace(/[\\;,]/g,m=>'\\'+m).replace(/[\r\n]+/g,' ');
   const dt=iso=>iso.replace(/-/g,''), stamp=new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z', ev=[];
   const add=(uid,date,title,desc,rule)=>ev.push(['BEGIN:VEVENT',`UID:${uid}@carnet-depenses`,`DTSTAMP:${stamp}`,`DTSTART;VALUE=DATE:${dt(date)}`,`SUMMARY:${esc2(title)}`,`DESCRIPTION:${esc2(desc)}`,rule?`RRULE:${rule}`:null,'BEGIN:VALARM','ACTION:DISPLAY',`DESCRIPTION:${esc2(title)}`,'TRIGGER:-PT15H','END:VALARM','END:VEVENT'].filter(Boolean).join('\r\n'));
-  for(const r of Object.values(D.recurring))if(r.active)add('rec-'+r.id,nextDate(r.day,todayISO()),r.label+' : '+fmtN(r.amount+(r.fee||0))+' FCFA','Dépense récurrente du Carnet de dépenses',`FREQ=MONTHLY;BYMONTHDAY=${r.day}`);
+  for(const r of Object.values(D.recurring))if(r.active)add('rec-'+r.id,nextDate(r.day,todayISO()),r.label+' : '+fmtNR(r.amount+(r.fee||0))+' FCFA','Dépense récurrente du Carnet de dépenses',`FREQ=MONTHLY;BYMONTHDAY=${r.day}`);
   for(const p of plans()){if(p.active===false)continue;const s=planStats(p);
-    if((p.type==='loan'||p.type==='debt')&&s.left>0&&s.due)add('plan-'+p.id,s.due,(p.type==='loan'?'Remboursement attendu de ':'Rembourser ')+p.name+' : '+fmtN(s.left)+' FCFA','Échéance du Carnet de dépenses');
-    if(p.type==='tontine'){const d=p.data||{};add('ton-'+p.id,d.start||todayISO(),'Cotisation '+p.name+' : '+fmtN(p.amount)+' FCFA','Tontine',`FREQ=${d.frequency==='hebdomadaire'?'WEEKLY':'MONTHLY'};COUNT=${d.members||1}`);
-      add('tonr-'+p.id,s.receive,'Réception tontine '+p.name+' : '+fmtN(s.pot)+' FCFA','Ton tour dans la tontine')}
+    if((p.type==='loan'||p.type==='debt')&&s.left>0&&s.due)add('plan-'+p.id,s.due,(p.type==='loan'?'Remboursement attendu de ':'Rembourser ')+p.name+' : '+fmtNR(s.left)+' FCFA','Échéance du Carnet de dépenses');
+    if(p.type==='tontine'){const d=p.data||{};add('ton-'+p.id,d.start||todayISO(),'Cotisation '+p.name+' : '+fmtNR(p.amount)+' FCFA','Tontine',`FREQ=${d.frequency==='hebdomadaire'?'WEEKLY':'MONTHLY'};COUNT=${d.members||1}`);
+      add('tonr-'+p.id,s.receive,'Réception tontine '+p.name+' : '+fmtNR(s.pot)+' FCFA','Ton tour dans la tontine')}
     if(p.type==='project'&&s.due)add('proj-'+p.id,s.due,'Échéance du projet '+p.name,'Projet d\'épargne')}
   return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Carnet de depenses//FR','CALSCALE:GREGORIAN','X-WR-CALNAME:Carnet de dépenses',...ev,'END:VCALENDAR'].join('\r\n');
 }
@@ -423,7 +446,7 @@ function toAllocate(m){
   return {R,bud,goal,eng,proj,rest:R-bud-goal-eng-proj};
 }
 const discreet=()=>LS.get('cd2-discreet',false);
-function applyDiscreet(){document.documentElement.classList.toggle('discreet',discreet())}
+function applyDiscreet(){HIDE=discreet();document.documentElement.classList.toggle('discreet',HIDE)}
 
 /* ---------- Graphiques SVG ---------- */
 function barsChart(labels,series,opts={}){
@@ -460,6 +483,8 @@ const keys=list=>`<div class="keys">${list.map(([n,c])=>`<span><i style="backgro
 const TABS=[['dash','Accueil','home'],['list','Dépenses','list'],['accounts','Comptes','wallet'],['plan','Plan','target'],['analyse','Analyse','chart']];
 function render(){
   if($('app').hidden)return;
+  if(rebuildWallets())refreshWalletChips();
+  normalizeData();
   $('monthLabel').textContent=mLong(S.month);
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-current',b.dataset.tab===S.tab?'page':'false'));
   const views={dash:renderDash,list:renderList,accounts:renderAccounts,plan:renderPlan,analyse:renderAnalyse,settings:renderSettings};
@@ -477,7 +502,7 @@ function renderDash(){
   if(B){
     const neg=B.perDay<0;
     h+=`<section class="block hero"><div class="block-head"><p class="over">Budget par jour · jusqu'au ${daysIn(m)} ${esc(name)}</p><button type="button" class="eye" data-act="toggleDiscreet">${ic(discreet()?'eye':'eyeoff','s16')}${discreet()?'Afficher':'Masquer'}</button></div>
-      <div class="big num">${neg?'0':fmtN(Math.max(0,B.perDay))} <small>FCFA</small></div>
+      <div class="big num">${fmtN(neg?0:B.perDay)} <small>FCFA</small></div>
       <div class="bar"><div style="width:${Math.min(B.used,1)*100}%;background:${B.used>1?'var(--danger)':B.used>.85?'var(--gold-400)':'var(--forest-400)'}"></div></div>
       <div class="sub num"><span>Reste à vivre <b>${fmtS(B.rav)}</b></span><span>Dépenses courantes <b>${fmt(B.variable)}</b></span><span>${B.left} jour${B.left>1?'s':''} restant${B.left>1?'s':''}</span></div></section>`;
     if(neg)h+=msg('danger','Reste à vivre dépassé',`Tes dépenses courantes dépassent de ${fmt(B.variable-B.rav)} ce qui restait après charges fixes, engagements et épargne visée.`);
@@ -586,13 +611,14 @@ function renderAccounts(){
     <details><summary class="linkbtn">${ic('plus','s16')} Ajouter un bien</summary><div class="add"><div class="grid2"><label class="inp">Nom<input id="as-name" maxlength="40" placeholder="Ex. Parcelle à Kintélé"></label><label class="inp">Valeur estimée (FCFA)<input id="as-value" data-money inputmode="numeric" placeholder="0"></label></div><p class="err" id="as-err" hidden></p><button type="button" class="btn-primary" data-act="addAsset">Enregistrer</button></div></details></section>`;
   const total=sumBy(WALLETS,([w])=>balance(w));
   h+=`<section class="block"><div class="block-head"><p class="over">Portefeuilles</p><small class="num">total ${fmtS(total)}</small></div><div class="rows">`;
-  for(const [w,l,c] of WALLETS){const b=balance(w);h+=`<div class="rowbtn" style="cursor:default"><span class="wicon" style="color:${c}">${ic(w==='epargne'?'shield':'wallet')}</span><span class="t"><span>${esc(l)}</span><span>${w==='epargne'?`dont projets ${fmt(projectsSaved())}`:MOMO.has(w)?'Mobile Money':w==='banque'?'compte et carte':'liquide'}</span></span><b class="num" style="${b<0?'color:var(--danger)':''}">${fmtS(b)}</b></div>`}
+  for(const [w,l,c] of WALLETS){const b=balance(w);h+=`<div class="rowbtn" style="cursor:default"><span class="wicon" style="color:${c}">${ic(w==='epargne'?'shield':'wallet')}</span><span class="t"><span>${esc(l)}</span><span>${w==='epargne'?`dont projets ${fmt(projectsSaved())}`:esc(WSUB[WAL[w].kind]||'')}</span></span><b class="num" style="${b<0?'color:var(--danger)':''}">${fmtS(b)}</b></div>`}
   h+=`</div><div class="actions"><button type="button" class="btn-primary sm" data-act="newMove">${ic('swap','s16')}Transférer</button></div>
     <details ${D.settings.opening_date?'':'open'}><summary class="linkbtn">Soldes de départ</summary><div class="add">
       <p class="hint">Indique ce que contient chaque portefeuille à une date donnée. Les soldes sont ensuite calculés à partir des opérations saisies depuis cette date.</p>
       <label class="inp">Date des soldes<input type="date" id="op-date" value="${esc(D.settings.opening_date||todayISO())}"></label>
       ${WALLETS.map(([w,l])=>`<div class="form-row"><span>${esc(l)}</span><label class="field"><input class="r" id="op-${w}" data-money inputmode="numeric" placeholder="0" value="${(D.settings.opening||{})[w]?group(D.settings.opening[w]):''}" aria-label="Solde ${esc(l)}"><span>FCFA</span></label></div>`).join('')}
-      <button type="button" class="btn-primary" data-act="saveOpening">Enregistrer les soldes</button></div></details></section>`;
+      <button type="button" class="btn-primary" data-act="saveOpening">Enregistrer les soldes</button></div></details>
+    ${walletsManage()}</section>`;
   const inc=monthInc(m).sort((a,b)=>a.date<b.date?1:-1);
   h+=`<section class="block"><div class="block-head"><p class="over">Entrées de ${esc(mName(m))}</p><small class="num">${fmt(sumBy(inc,e=>e.amount))}</small></div>`;
   h+=inc.length?`<div class="rows">${inc.map(e=>`<button type="button" class="rowbtn" data-income="${esc(e.id)}"><span class="dot" style="background:${SRC[e.source]?.color||'#9AA8A1'}"></span><span class="t"><span>${esc(SRC[e.source]?.label||e.source)}</span><span>${dFr(e.date)} · ${esc(WAL[e.wallet||'banque']?.label)}${e.note?' · '+esc(e.note):''}</span></span><b class="num">${fmt(e.amount)}</b></button>`).join('')}</div>`:`<p class="hint">Aucune entrée ce mois-ci. Ajoute ton salaire, une prime ou une mission pour calculer ton budget par jour.</p>`;
@@ -661,7 +687,7 @@ function tipFor(c,x,t){
     case 'transport':{const n=Math.round(x/PRICES.taxi),g=r500(x/PRICES.taxi/3*(PRICES.taxi-PRICES.bus));return `Ton transport équivaut à environ <strong>${n} courses de taxi</strong> à 1 000 FCFA. Remplacer une course sur trois par le bus (150 FCFA) ferait gagner environ <strong>${fmt(g)}</strong> par mois.`}
     case 'alimentation':return `Tu dépasses la cible de <strong>${ex}</strong>. Achète les produits de base en gros (sac de riz, bidon d'huile) plutôt qu'au détail, et fais une liste de marché pour la semaine.`;
     case 'factures':return `Au tarif E²C des petits compteurs, 100 kWh coûtent environ <strong>${fmt(100*PRICES.kwh)}</strong> hors taxes. Climatiseur, congélateur et chauffe-eau pèsent le plus sur la facture.`;
-    case 'communication':return x>PRICES.fibre?`Tu dépenses plus que l'abonnement fibre Congo Telecom (<strong>35 000 FCFA</strong> par mois). Une connexion fixe pourrait te coûter moins cher que la data mobile.`:`Tu dépasses la cible de <strong>${ex}</strong>. Un forfait 30 jours revient en général moins cher que des petits forfaits au jour le jour.`;
+    case 'communication':return x>PRICES.fibre?`Tu dépenses plus que l'offre d'entrée en fibre chez Congo Telecom ou CanalBox (<strong>15 000 FCFA</strong> par mois). Une connexion fixe pourrait te coûter moins cher que la data mobile.`:`Tu dépasses la cible de <strong>${ex}</strong>. Un forfait 30 jours revient en général moins cher que des petits forfaits au jour le jour.`;
     case 'logement':return `Le logement dépasse le repère de 20 % des revenus. En cas de déménagement, compte aussi l'entrée habituelle à Brazzaville : <strong>2 mois de caution + 1 mois d'agence</strong>.`;
     case 'loisirs':return `Dépassement de <strong>${ex}</strong>. Fixe une enveloppe sorties en début de mois, idéalement en espèces, et arrête quand elle est vide.`;
     case 'famille':return `Dépassement de <strong>${ex}</strong>. Les aides à la famille sont souvent imprévues : garde une réserve dédiée plutôt que de puiser dans les autres postes.`;
@@ -706,7 +732,7 @@ function renderRefs(){
     <span>Bus à Brazzaville<small>tarif maintenu, juillet 2024</small></span><span class="v">150 FCFA</span>
     <span>Course de taxi à Brazzaville<small>tarif maintenu, juillet 2024</small></span><span class="v">1 000 FCFA</span>
     <span>Électricité E²C, petits compteurs<small>kWh hors taxes, plus 2 268 à 2 550 FCFA fixes</small></span><span class="v">49,08 FCFA</span>
-    <span>Fibre Congo Telecom 512 Mbit/s<small>par mois, hors frais d'accès</small></span><span class="v">35 000 FCFA</span>
+    <span>Fibre Congo Telecom et CanalBox, offre d'entrée<small>par mois, prix fixé en octobre 2026</small></span><span class="v">15 000 FCFA</span>
     <span>Riz, sac de 25 kg<small>marché de Brazzaville, février 2023</small></span><span class="v">18 000 FCFA</span>
     <span>Entrée dans un logement loué<small>usage courant</small></span><span class="v">2 mois + 1 mois</span>
   </div><p class="over" style="margin-top:8px">Sources</p><ol class="src">
@@ -779,8 +805,8 @@ function renderAnalyse(){
     ${nomCh!=null?`<p class="hint num">Depuis ${esc(mShort(months[fI]))}, tes dépenses ont varié de <b>${(nomCh>0?'+':'')+pctS(nomCh,1)}</b>. Hors inflation, la variation réelle est de <b>${(realCh>0?'+':'')+pctS(realCh,1)}</b>.</p>`:''}</section>`;
   // Moyens de paiement
   const mets={};periodItems.forEach(e=>mets[e.method]=(mets[e.method]||0)+spend(e));
-  h+=`<section class="block"><p class="over">Moyens de paiement</p><div class="stack">${METHODS.filter(([k])=>mets[k]).map(([k])=>`<div style="width:${mets[k]/spTot*100}%;background:${WAL[k].color}"></div>`).join('')}</div>
-    <div class="legend">${METHODS.map(([k])=>`<div><span class="dot" style="background:${WAL[k].color}"></span><span>${esc(WAL[k].label)}</span><span class="v num">${spTot?Math.round((mets[k]||0)/spTot*100):0} %</span></div>`).join('')}</div></section>`;
+  h+=`<section class="block"><p class="over">Moyens de paiement</p><div class="stack">${METALL().filter(([k])=>mets[k]).map(([k])=>`<div style="width:${mets[k]/spTot*100}%;background:${WAL[k].color}"></div>`).join('')}</div>
+    <div class="legend">${METALL().map(([k])=>`<div><span class="dot" style="background:${WAL[k].color}"></span><span>${esc(WAL[k].label)}</span><span class="v num">${spTot?Math.round((mets[k]||0)/spTot*100):0} %</span></div>`).join('')}</div></section>`;
   return h;
 }
 
@@ -834,7 +860,7 @@ function renderSecurity(){
   const pk=LS.get(K.passkey,false), lock=LS.get(K.lock,false);
   let h=`<section class="block"><p class="over">Sécurité</p>
     <div class="form-row"><span>Rester connecté sur cet appareil<span class="meta" style="display:block">Désactivé : il faudra se reconnecter à chaque ouverture.</span></span><label class="switch"><input type="checkbox" id="remember" ${remember()?'checked':''}><span></span></label></div>`;
-  h+=`<div class="form-row"><span>Mode discret<span class="meta" style="display:block">Masque les montants à l'écran, pratique en public.</span></span><label class="switch"><input type="checkbox" id="discreetOpt" ${discreet()?'checked':''}><span></span></label></div>`;
+  h+=`<div class="form-row"><span>Mode discret<span class="meta" style="display:block">Remplace les montants par des étoiles (****), pratique en public.</span></span><label class="switch"><input type="checkbox" id="discreetOpt" ${discreet()?'checked':''}><span></span></label></div>`;
   if(!HAS_WEBAUTHN)return h+`<p class="hint">Cet appareil ne prend pas en charge les clés d'accès biométriques.</p></section>`;
   h+=`<div class="form-row"><span>Connexion avec ${BIO}<span class="meta" style="display:block">${pk?'Clé d\'accès enregistrée sur cet appareil.':'Une clé d\'accès est créée et gardée dans ton trousseau. Aucun mot de passe à retaper.'}</span></span>${pk?pill('success','Activée'):`<button type="button" class="btn-primary sm" data-act="registerPasskey">Activer</button>`}</div>`;
   if(pk)h+=`<div class="form-row"><span>Verrouiller à l'ouverture<span class="meta" style="display:block">${BIO} est demandé à chaque ouverture et après 2 minutes en arrière-plan.</span></span><label class="switch"><input type="checkbox" id="lockOpt" ${lock?'checked':''}><span></span></label></div>`;
@@ -885,7 +911,9 @@ async function passkeyLogin(){
 }
 
 /* ---------- Fenêtre de saisie ---------- */
-const chips=(name,list)=>list.map(([k,l,c])=>`<label class="chip"><input type="radio" name="${name}" value="${k}"><span><i class="dot" style="background:${c}"></i>${esc(l)}</span></label>`).join('');
+const chips=(name,list)=>list.map(([k,l,c])=>`<label class="chip"><input type="radio" name="${name}" value="${esc(k)}"><span><i class="dot" style="background:${esc(c)}"></i>${esc(l)}</span></label>`).join('');
+function refreshWalletChips(){if(!$('f-methods'))return;$('f-methods').innerHTML=chips('met',METHODS);$('f-from').innerHTML=chips('from',WALLETS);$('f-to').innerHTML=chips('to',WALLETS)}
+function ensureChip(box,name,id){if(!id||!WAL[id]||!WAL[id].archived||document.querySelector(`input[name=${name}][value="${id}"]`))return;$(box).insertAdjacentHTML('beforeend',chips(name,[[id,WAL[id].label+' (archivé)',WAL[id].color]]))}
 function buildStatic(){
   $('f-cats').innerHTML=chips('cat',CATS);
   $('f-methods').innerHTML=chips('met',METHODS);
@@ -912,7 +940,7 @@ function setKind(kind){
   $('sheetTitle').textContent=ex?verb+'dépense':inc?verb+'entrée':(S.editing?'Modifier le mouvement':'Nouveau mouvement');
   $('f-note').placeholder=inc?'Ex. salaire octobre':mv?'Ex. retrait au kiosque':'Ex. marché Total';
   const q=inc?[50000,100000,200000,400000]:mv?[5000,10000,25000,50000]:[500,1000,2000,5000,10000];
-  $('quick').innerHTML=q.map(v=>`<button type="button" data-quick="${v}">${shortN(v)}</button>`).join('');
+  $('quick').innerHTML=q.map(v=>`<button type="button" data-quick="${v}">${shortRaw(v)}</button>`).join('');
   updateMoveFields();
 }
 function updateMoveFields(){
@@ -934,12 +962,13 @@ function openSheet(item,kind,preset){
   if(kind==='move')$('f-mkind').value=item?.kind||preset?.kind||'transfer';
   setKind(kind||'expense');
   $('f-amount').value=item?group(item.amount):'';
+  refreshWalletChips();ensureChip('f-methods','met',item?.method);ensureChip('f-to','to',item?.wallet);ensureChip('f-from','from',item?.from_wallet);ensureChip('f-to','to',item?.to_wallet);
   radio('cat',item?.category||'');
   radio('nat',item?natureOf(item):'');
-  radio('met',item?.method||LS.get(K.met,'especes'));
+  radio('met',item?.method||lastMet());
   radio('src',item?.source||'salaire');
   if(kind==='income')radio('to',item?.wallet||'banque');
-  if(kind==='move'){const M=MOVES[$('f-mkind').value];radio('from',item?.from_wallet||(M.from?LS.get(K.met,'especes'):''));radio('to',item?.to_wallet||M.fixedTo||(M.to&&M.from?'epargne':M.to?'especes':''))}
+  if(kind==='move'){const M=MOVES[$('f-mkind').value];radio('from',item?.from_wallet||(M.from?lastMet():''));radio('to',item?.to_wallet||M.fixedTo||(M.to&&M.from?'epargne':M.to?'especes':''))}
   updateMoveFields();
   if(item?.ref_id||preset?.ref)$('f-plan').value=item?.ref_id||preset.ref;
   $('f-fee').value=item?.fee?group(item.fee):'';
@@ -981,7 +1010,7 @@ function saveSheet(ev){
   const wasEdit=!!S.editing, kind=S.kind;closeSheet();
   if(date.slice(0,7)!==S.month)S.month=date.slice(0,7);
   mutate([op]);
-  toast(wasEdit?'Modification enregistrée':(kind==='income'?'Entrée enregistrée : ':kind==='move'?'Mouvement enregistré : ':'Dépense enregistrée : ')+fmt(amount));
+  toast(wasEdit?'Modification enregistrée':(kind==='income'?'Entrée enregistrée : ':kind==='move'?'Mouvement enregistré : ':'Dépense enregistrée : ')+fmtRaw(amount));
 }
 function deleteSheet(){
   if(!S.editing)return;
@@ -997,7 +1026,7 @@ function smsParse(){
   info.style.color='';
   if(r.kind==='withdraw'){$('f-mkind').value='transfer';setKind('move');radio('from',r.op||'mtn');radio('to','especes')}
   else if(r.kind==='income'){setKind('income');radio('to',r.op||'mtn');radio('src','autre')}
-  else{setKind('expense');radio('met',r.op||LS.get(K.met,'especes'))}
+  else{setKind('expense');radio('met',r.op||lastMet())}
   updateMoveFields();
   $('f-amount').value=group(r.amount);
   if(r.fee){$('f-fee').value=group(r.fee)}
@@ -1005,7 +1034,7 @@ function smsParse(){
   const note=r.kind==='withdraw'?'Retrait '+(WAL[r.op]?.label||''):r.who||'';
   if(note)$('f-note').value=note.slice(0,120);
   if(r.kind==='expense')suggestCat();
-  info.textContent=`Lu : ${r.kind==='withdraw'?'retrait':r.kind==='income'?'argent reçu':'paiement'} de ${fmt(r.amount)}${r.fee?`, frais ${fmt(r.fee)}`:''}${r.date?`, le ${dFr(r.date)}`:''}${r.op?` sur ${WAL[r.op].label}`:''}. Vérifie puis enregistre.`;
+  info.textContent=`Lu : ${r.kind==='withdraw'?'retrait':r.kind==='income'?'argent reçu':'paiement'} de ${fmtRaw(r.amount)}${r.fee?`, frais ${fmtRaw(r.fee)}`:''}${r.date?`, le ${dFr(r.date)}`:''}${r.op?` sur ${WAL[r.op].label}`:''}. Vérifie puis enregistre.`;
 }
 function suggestCat(){
   if(S.kind!=='expense')return;
@@ -1013,6 +1042,56 @@ function suggestCat(){
   if(!c){h.hidden=true;return}
   h.hidden=false;h.textContent='Catégorie proposée d\'après la note : '+CAT[c].label+'.';
   if(!S.catTouched){radio('cat',c);if(!S.natTouched)radio('nat',NEED.has(c)?'besoin':'envie')}
+}
+// Valeurs inconnues ou inattendues venant de la base (autre appareil, import ancien, donnée altérée) : repli sûr à l'affichage, sans toucher la base
+function normalizeData(){
+  const wal=w=>w&&WAL[w]?w:null;
+  for(const e of Object.values(D.expenses)){if(!CAT[e.category])e.category='autres';if(!wal(e.method))e.method='especes'}
+  for(const e of Object.values(D.incomes)){if(!SRC[e.source])e.source='autre';if(!wal(e.wallet))e.wallet='banque'}
+  for(const e of Object.values(D.recurring)){if(!CAT[e.category])e.category='autres';if(!wal(e.method))e.method='especes'}
+  for(const [id,m] of Object.entries(D.moves)){if(!MOVES[m.kind]){delete D.moves[id];continue}m.from_wallet=wal(m.from_wallet);m.to_wallet=wal(m.to_wallet)}
+  for(const [id,p] of Object.entries(D.plans)){if(!PLAN_LABEL[p.type]){delete D.plans[id];continue}if(!p.data||typeof p.data!=='object'||Array.isArray(p.data))p.data={}}
+}
+function walletsManage(){
+  const id=S.wedit, isNew=id==='new', cur=isNew?null:WAL[id], isBase=!isNew&&BASE_WALLETS.some(b=>b[0]===id);
+  const rows=Object.entries(WAL).map(([k,w])=>`<div class="rowbtn" style="cursor:default"><span class="wicon" style="color:${esc(w.color)}">${ic(k==='epargne'?'shield':'wallet')}</span><span class="t"><span>${esc(w.label)}${w.archived?' (archivé)':''}</span><span>${k==='epargne'?'épargne':esc((WKIND[w.kind]||'').toLowerCase())}</span></span><button type="button" class="pill" data-wedit="${esc(k)}">Modifier</button></div>`).join('');
+  let form='';
+  if(isNew||cur){
+    const color=cur?cur.color:WCOLORS[5], kind=cur?cur.kind:'cash';
+    form=`<div class="add"><p class="over">${isNew?'Nouveau portefeuille':'Modifier le portefeuille'}</p>
+      <label class="inp">Nom<input id="wf-name" maxlength="30" value="${esc(cur?cur.label:'')}" placeholder="Ex. Compte Ecobank"></label>
+      <fieldset><legend>Couleur</legend><div class="chips">${WCOLORS.map(c=>`<label class="chip" title="${esc(c)}"><input type="radio" name="wf-color" value="${esc(c)}" ${c===color?'checked':''}><span aria-label="Couleur ${esc(c)}" style="padding:10px"><i class="dot" style="background:${esc(c)};width:22px;height:22px;margin:0"></i></span></label>`).join('')}</div></fieldset>
+      ${isBase?'':`<label class="inp">Type<select id="wf-kind">${Object.entries(WKIND).map(([k,v])=>`<option value="${k}" ${k===kind?'selected':''}>${esc(v)}</option>`).join('')}</select></label>`}
+      ${isNew?'<label class="inp">Solde de départ (FCFA)<input id="wf-open" data-money inputmode="numeric" placeholder="0"></label>':''}
+      <p class="err" id="wf-err" hidden></p>
+      <div class="actions"><button type="button" class="btn-primary sm" data-act="saveWallet">Enregistrer</button><button type="button" class="pill" data-act="cancelWallet">Annuler</button>${(!isNew&&id!=='epargne'&&id!=='especes')?`<button type="button" class="pill ${S.armed==='wal:'+id?'danger':''}" data-act="archiveWallet">${cur.archived?'Restaurer':(S.armed==='wal:'+id?'Confirmer l\'archivage':'Archiver')}</button>`:''}</div>
+      ${(!isNew&&id!=='epargne'&&id!=='especes'&&!cur.archived)?'<p class="hint">Archiver masque le portefeuille des saisies. Ton historique est conservé et tu peux le restaurer. Le solde doit être à 0.</p>':''}</div>`;
+  }
+  return `<details ${S.wopen?'open':''}><summary class="linkbtn">${ic('sliders','s16')} Gérer mes portefeuilles</summary><div class="add"><div class="rows">${rows}</div>${isNew||cur?'':`<div class="actions"><button type="button" class="btn-primary sm" data-act="newWallet">${ic('plus','s16')}Ajouter un portefeuille</button></div>`}</div>${form}</details>`;
+}
+function saveWallet(){
+  const id=S.wedit, isNew=id==='new', err=m=>{$('wf-err').textContent=m;$('wf-err').hidden=false};
+  const name=$('wf-name').value.trim().replace(/\s+/g,' ').slice(0,30);
+  if(!name)return err('Indique un nom.');
+  if(Object.entries(WAL).some(([k,w])=>k!==id&&w.label.toLowerCase()===name.toLowerCase()))return err('Ce nom existe déjà.');
+  const cfg=cfgWallets().slice(), wid=isNew?'w-'+newId().replace(/-/g,'').slice(0,10):id, base=BASE_WALLETS.some(b=>b[0]===wid);
+  if(isNew&&cfg.filter(w=>!BASE_WALLETS.some(b=>b[0]===w.id)).length>=12)return err('12 portefeuilles ajoutés au maximum.');
+  const entry=Object.assign({},cfg.find(w=>w.id===wid)||{},{id:wid,label:name,color:WCOLORS.includes(radioVal('wf-color'))?radioVal('wf-color'):'#64748B'});
+  if(!base){const k=$('wf-kind')?.value;entry.kind=WKIND[k]?k:'other'}
+  const i=cfg.findIndex(w=>w.id===wid);if(i>=0)cfg[i]=entry;else cfg.push(entry);
+  const opening=Object.assign({},D.settings.opening,{__wallets:cfg});
+  if(isNew){const v=toInt($('wf-open')?.value);if(v)opening[wid]=v}
+  S.wedit=null;S.wopen=true;mutate([settingsRow({opening})]);toast(isNew?'Portefeuille ajouté':'Portefeuille modifié');
+}
+function archiveWallet(){
+  const id=S.wedit, w=WAL[id];if(!w||id==='new'||id==='especes'||id==='epargne')return;
+  if(!w.archived){
+    if(Math.round(balance(id))!==0){toast('Solde non nul : transfère d\'abord '+fmtRaw(balance(id))+' vers un autre portefeuille.');return}
+    if(S.armed!=='wal:'+id){S.armed='wal:'+id;S.wopen=true;render();return}
+  }
+  S.armed=null;const cfg=cfgWallets().slice(), i=cfg.findIndex(x=>x.id===id), archived=!w.archived;
+  if(i>=0)cfg[i]=Object.assign({},cfg[i],{archived});else cfg.push({id,label:w.label,color:w.color,archived});
+  S.wedit=null;S.wopen=true;mutate([settingsRow({opening:Object.assign({},D.settings.opening,{__wallets:cfg})})]);toast(archived?'Portefeuille archivé':'Portefeuille restauré');
 }
 function addAsset(){
   const name=$('as-name').value.trim(), value=toInt($('as-value').value), err=m=>{$('as-err').textContent=m;$('as-err').hidden=false};
@@ -1025,7 +1104,7 @@ function delAsset(id){
 }
 function restToSavings(){
   const T=toAllocate(S.month);if(!T||T.rest<=0)return;
-  mutate([settingsRow({savings_goal:savingsGoal(S.month)+T.rest})]);toast('Épargne visée : '+fmt(savingsGoal(S.month)));
+  mutate([settingsRow({savings_goal:savingsGoal(S.month)+T.rest})]);toast('Épargne visée : '+fmtRaw(savingsGoal(S.month)));
 }
 function exportICS(){
   const ics=buildICS();if(!/VEVENT/.test(ics))return toast('Aucune échéance à exporter');
@@ -1052,7 +1131,7 @@ function saveGoal(){
   mutate([settingsRow({savings_goal:toInt($('goal').value),emergency_months:em,inflation:isFinite(inf)?Math.max(-20,Math.min(100,inf)):4})]);toast('Réglages enregistrés');
 }
 function saveOpening(){
-  const op={};WALLETS.forEach(([w])=>{const v=toInt($('op-'+w).value);if(v)op[w]=v});if(assets().length)op.__biens=assets();
+  const op=Object.assign({},D.settings.opening);WALLETS.forEach(([w])=>{const v=toInt($('op-'+w).value);if(v)op[w]=v;else delete op[w]});
   const d=$('op-date').value||todayISO();
   mutate([settingsRow({opening:op,opening_date:d})]);toast('Soldes de départ enregistrés');
 }
@@ -1105,21 +1184,23 @@ function exportJson(){
 function parseBackup(txt){
   const j=JSON.parse(txt);
   if(!j||j.app!=='carnet-depenses')throw new Error('Ce fichier n\'est pas une sauvegarde du Carnet de dépenses.');
+  const bw=new Set(cleanWallets(((j.settings&&j.settings.opening)||{}).__wallets).map(w=>w.id)), WOK=id=>!!id&&(!!WAL[id]||bw.has(String(id))), metOk=m=>(WOK(m)&&m!=='epargne')?m:'especes';
   const okD=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d), now=nowISO(), str=(s,n)=>String(s||'').slice(0,n);
-  const ex=(j.expenses||[]).filter(e=>e&&SAFE_ID(e.id)&&e.amount>0&&okD(e.date)).map(e=>({id:String(e.id),amount:Math.round(e.amount),fee:Math.max(0,Math.round(e.fee||0)),category:CAT[e.category]&&e.category!=='frais'?e.category:'autres',method:MET_OK(e.method),nature:e.nature==='besoin'||e.nature==='envie'?e.nature:null,date:e.date,note:str(e.note,120),recurring_id:e.recurring_id||null,created_at:e.created_at||now,updated_at:now}));
-  const inc=(j.incomes||[]).filter(e=>e&&SAFE_ID(e.id)&&e.amount>0&&okD(e.date)).map(e=>({id:String(e.id),amount:Math.round(e.amount),source:SRC[e.source]?e.source:'autre',wallet:WAL[e.wallet]?e.wallet:'banque',date:e.date,note:str(e.note,120),created_at:e.created_at||now,updated_at:now}));
-  const mv=(j.moves||[]).filter(m=>m&&SAFE_ID(m.id)&&MOVES[m.kind]&&m.amount>0&&okD(m.date)).map(m=>({id:String(m.id),kind:m.kind,amount:Math.round(m.amount),fee:Math.max(0,Math.round(m.fee||0)),date:m.date,from_wallet:WAL[m.from_wallet]?m.from_wallet:null,to_wallet:WAL[m.to_wallet]?m.to_wallet:null,ref_id:m.ref_id||null,note:str(m.note,120),created_at:m.created_at||now,updated_at:now}));
+  const ex=(j.expenses||[]).filter(e=>e&&SAFE_ID(e.id)&&e.amount>0&&okD(e.date)).map(e=>({id:String(e.id),amount:Math.round(e.amount),fee:Math.max(0,Math.round(e.fee||0)),category:CAT[e.category]&&e.category!=='frais'?e.category:'autres',method:metOk(e.method),nature:e.nature==='besoin'||e.nature==='envie'?e.nature:null,date:e.date,note:str(e.note,120),recurring_id:e.recurring_id||null,created_at:e.created_at||now,updated_at:now}));
+  const inc=(j.incomes||[]).filter(e=>e&&SAFE_ID(e.id)&&e.amount>0&&okD(e.date)).map(e=>({id:String(e.id),amount:Math.round(e.amount),source:SRC[e.source]?e.source:'autre',wallet:WOK(e.wallet)?e.wallet:'banque',date:e.date,note:str(e.note,120),created_at:e.created_at||now,updated_at:now}));
+  const mv=(j.moves||[]).filter(m=>m&&SAFE_ID(m.id)&&MOVES[m.kind]&&m.amount>0&&okD(m.date)).map(m=>({id:String(m.id),kind:m.kind,amount:Math.round(m.amount),fee:Math.max(0,Math.round(m.fee||0)),date:m.date,from_wallet:WOK(m.from_wallet)?m.from_wallet:null,to_wallet:WOK(m.to_wallet)?m.to_wallet:null,ref_id:m.ref_id||null,note:str(m.note,120),created_at:m.created_at||now,updated_at:now}));
   const pl=(j.plans||[]).filter(p=>p&&SAFE_ID(p.id)&&PLAN_LABEL[p.type]).map(p=>({id:String(p.id),type:p.type,name:str(p.name||'Sans nom',60),amount:Math.max(0,Math.round(p.amount||0)),data:cleanData(p.data),active:p.active!==false,created_at:p.created_at||now,updated_at:now}));
   const bud={};for(const [c,v] of Object.entries(j.budgets||{}))if(CAT[c]&&v>0)bud[c]=Math.round(v);
-  const rec=(j.recurring||[]).filter(r=>r&&SAFE_ID(r.id)&&r.amount>0&&r.day>=1&&r.day<=28&&/^\d{4}-\d{2}$/.test(r.last_month||'')).map(r=>({id:String(r.id),label:str(r.label||'Récurrente',60),amount:Math.round(r.amount),fee:Math.round(r.fee||0),category:CAT[r.category]?r.category:'autres',method:MET_OK(r.method),day:r.day,last_month:r.last_month,active:r.active!==false,created_at:r.created_at||now,updated_at:now}));
+  const rec=(j.recurring||[]).filter(r=>r&&SAFE_ID(r.id)&&r.amount>0&&r.day>=1&&r.day<=28&&/^\d{4}-\d{2}$/.test(r.last_month||'')).map(r=>({id:String(r.id),label:str(r.label||'Récurrente',60),amount:Math.round(r.amount),fee:Math.round(r.fee||0),category:CAT[r.category]?r.category:'autres',method:metOk(r.method),day:r.day,last_month:r.last_month,active:r.active!==false,created_at:r.created_at||now,updated_at:now}));
   const s=j.settings&&typeof j.settings==='object'?j.settings:null;
-  return {expenses:ex,incomes:inc,moves:mv,plans:pl,budgets:bud,recurring:rec,settings:s?{savings_goal:Math.max(0,Math.round(s.savings_goal||0)),opening:cleanOpening(s.opening),opening_date:okD(s.opening_date)?s.opening_date:null,emergency_months:s.emergency_months||3,inflation:Number(s.inflation??4)}:null};
+  return {expenses:ex,incomes:inc,moves:mv,plans:pl,budgets:bud,recurring:rec,settings:s?{savings_goal:Math.max(0,Math.round(s.savings_goal||0)),opening:cleanOpening(s.opening,WOK),opening_date:okD(s.opening_date)?s.opening_date:null,emergency_months:s.emergency_months||3,inflation:Number(s.inflation??4)}:null};
 }
 const SAFE_ID=i=>/^[A-Za-z0-9_.:-]{1,100}$/.test(String(i))&&!['__proto__','constructor','prototype'].includes(String(i));
 const cleanData=o=>{const out={};if(!o||typeof o!=='object'||Array.isArray(o))return out;for(const [k,v] of Object.entries(o).slice(0,30)){if(!/^[a-z_]{1,24}$/.test(k)||k==='__proto__')continue;if(typeof v==='number'&&isFinite(v))out[k]=v;else if(typeof v==='boolean')out[k]=v;else if(typeof v==='string')out[k]=v.slice(0,60)}return out};
-const cleanOpening=o=>{const out={};if(!o||typeof o!=='object')return out;for(const [k,v] of Object.entries(o)){if(k==='__biens'){if(Array.isArray(v))out.__biens=v.slice(0,100).filter(a=>a&&typeof a==='object').map(a=>({id:SAFE_ID(a.id)?String(a.id):newId(),name:String(a.name||'Bien').slice(0,40),value:Math.max(0,Math.round(Number(a.value)||0))}));continue}
-  if(WAL[k]&&isFinite(Number(v)))out[k]=Math.round(Number(v))}return out};
-const MET_OK=m=>METHODS.some(x=>x[0]===m)?m:'especes';
+const cleanWallets=a=>Array.isArray(a)?a.slice(0,30).filter(w=>w&&typeof w==='object'&&SAFE_ID(w.id)).map(w=>({id:String(w.id),label:String(w.label||'Portefeuille').slice(0,30),color:WCOLORS.includes(w.color)?w.color:'#64748B',kind:WKIND[w.kind]?w.kind:'other',archived:!!w.archived})):[];
+const cleanOpening=(o,ok=id=>!!WAL[id])=>{const out={};if(!o||typeof o!=='object')return out;for(const [k,v] of Object.entries(o)){if(k==='__biens'){if(Array.isArray(v))out.__biens=v.slice(0,100).filter(a=>a&&typeof a==='object').map(a=>({id:SAFE_ID(a.id)?String(a.id):newId(),name:String(a.name||'Bien').slice(0,40),value:Math.max(0,Math.round(Number(a.value)||0))}));continue}
+  if(k==='__wallets'){out.__wallets=cleanWallets(v);continue}
+  if(ok(k)&&isFinite(Number(v)))out[k]=Math.round(Number(v))}return out};
 function doImport(){
   const p=pendingImport;if(!p)return;pendingImport=null;const now=nowISO();
   const ops=[...p.expenses.map(row=>({t:'expenses',op:'upsert',row})),...p.incomes.map(row=>({t:'incomes',op:'upsert',row})),...p.plans.map(row=>({t:'plans',op:'upsert',row})),...p.moves.map(row=>({t:'moves',op:'upsert',row})),
@@ -1137,9 +1218,9 @@ async function logout(){
 document.addEventListener('click',ev=>{
   const t=ev.target.closest('button,[data-edit],[data-income],[data-move],[data-act]');if(!t)return;
   const ds=t.dataset;
-  if(S.armed&&!(ds.act==='applyProp'||ds.act==='logout'||ds.recDel||ds.planDel||ds.assetDel))S.armed=null;
-  if(ds.tab){S.tab=ds.tab;LS.set(K.tab,S.tab);render();window.scrollTo(0,0);return}
-  if(ds.kind){setKind(ds.kind);if(ds.kind==='income')radio('to','banque');if(ds.kind==='move'){radio('from',LS.get(K.met,'especes'));radio('to','epargne');updateMoveFields()}return}
+  if(S.armed&&!(ds.act==='applyProp'||ds.act==='logout'||ds.act==='archiveWallet'||ds.recDel||ds.planDel||ds.assetDel))S.armed=null;
+  if(ds.tab){S.tab=ds.tab;LS.set(K.tab,S.tab);render();$('main').scrollTop=0;return}
+  if(ds.kind){setKind(ds.kind);if(ds.kind==='income')radio('to','banque');if(ds.kind==='move'){radio('from',lastMet());radio('to','epargne');updateMoveFields()}return}
   if(ds.quick){$('f-amount').value=group(ds.quick);return}
   if(ds.span){S.span=+ds.span;LS.set(K.span,S.span);render();return}
   if(ds.filter){S.filter=ds.filter;render();return}
@@ -1152,13 +1233,14 @@ document.addEventListener('click',ev=>{
   if(ds.addplan){addPlan(ds.addplan);return}
   if(ds.planDel){delPlan(ds.planDel);return}
   if(ds.assetDel){delAsset(ds.assetDel);return}
+  if(ds.wedit){S.wedit=ds.wedit;S.wopen=true;render();return}
   if(ds.recToggle){toggleRec(ds.recToggle);return}
   if(ds.recDel){delRec(ds.recDel);return}
   const acts={close:closeSheet,new:()=>openSheet(null,'expense'),newIncome:()=>openSheet(null,'income'),newMove:()=>openSheet(null,'move',{kind:'transfer'}),
     saveBud:saveBudgets,applyProp:applyProposal,saveGoal,saveOpening,addRec,exportJson,pickImport:()=>$('importFile').click(),doImport,cancelImport:()=>{pendingImport=null;render()},
     hideBilan:()=>{LS.set(K.bilan,shiftM(curM(),-1));render()},
     install:async()=>{if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice}catch(e){}installEvt=null;render()},
-    registerPasskey,smsParse,addAsset,restToSavings,ics:exportICS,
+    registerPasskey,smsParse,addAsset,restToSavings,saveWallet,archiveWallet,newWallet:()=>{S.wedit='new';S.wopen=true;render()},cancelWallet:()=>{S.wedit=null;S.wopen=true;render()},ics:exportICS,
     smsToggle:()=>{$('smsArea').hidden=!$('smsArea').hidden;if(!$('smsArea').hidden)$('smsText').focus()},
     toggleDiscreet:()=>{LS.set('cd2-discreet',!discreet());applyDiscreet();render()},
     syncNow:()=>sync(true).then(()=>toast(navigator.onLine?'Synchronisé':'Hors ligne : réessaie plus tard')),logout};
@@ -1190,7 +1272,7 @@ document.addEventListener('paste',ev=>{
 });
 $('importFile').addEventListener('change',async ev=>{
   const f=ev.target.files[0];ev.target.value='';if(!f)return;
-  try{pendingImport=parseBackup(await f.text());S.tab='settings';render();window.scrollTo(0,document.body.scrollHeight)}catch(e){toast(e.message||'Fichier illisible')}
+  try{pendingImport=parseBackup(await f.text());S.tab='settings';render();$('main').scrollTop=$('main').scrollHeight}catch(e){toast(e.message||'Fichier illisible')}
 });
 $('fab').onclick=()=>openSheet(null,'expense');
 $('prevM').onclick=()=>{S.month=shiftM(S.month,-1);S.filter='all';render()};
@@ -1243,7 +1325,7 @@ function startApp(session,unlocked){
   if(sb)sync(true);else runRecurring();
 }
 async function init(){
-  buildStatic();applyDiscreet();
+  rebuildWallets();buildStatic();applyDiscreet();
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
   const cfg=window.CARNET_CONFIG||{};
   if(!window.supabase){if(uid)return startApp(null);return gate(band+`<div class="body"><p>Connexion impossible pour le moment. Vérifie ta connexion Internet puis recharge la page.</p></div>`)}

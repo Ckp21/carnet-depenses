@@ -1,7 +1,7 @@
-# Carnet de dépenses V2.3
+# Carnet de dépenses V2.4
 
 Application personnelle de gestion des dépenses en FCFA, installable sur téléphone et utilisable hors ligne.
-Version 2.3, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
+Version 2.4, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
 
 ---
 
@@ -43,7 +43,6 @@ flowchart LR
 | `lib/supabase.js` | Bibliothèque supabase-js 2.117.2 (MIT), hébergée ici plutôt que sur un CDN |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Installation et fonctionnement hors ligne |
 | `supabase/schema.sql` | Création des tables et des règles de sécurité |
-| `data/import-v1.json` | Tes données de la V1, prêtes à importer |
 | `docs/` | Cahier des charges, modèle de données, repères Congo |
 
 ## 3. Mise en service (une seule fois)
@@ -67,7 +66,7 @@ flowchart LR
 
 1. Ouvrir l'adresse sur le téléphone, toucher **Créer mon compte**, confirmer l'e-mail reçu, puis se connecter.
 2. Dans Supabase, *Authentication > Sign In / Providers* : désactiver **Allow new users to sign up**. Plus personne d'autre ne pourra créer de compte.
-3. *Réglages > Restaurer un fichier* : importer `data/import-v1.json` pour reprendre les données de la V1.
+3. *Réglages > Restaurer un fichier* : importer une sauvegarde JSON si tu reprends des données existantes. Garde tes sauvegardes hors du dépôt public (le dossier `data/` est ignoré par Git).
 4. Installer l'application : sur Android, menu ⋮ puis *Installer l'application* ; sur iPhone, *Partager* puis *Sur l'écran d'accueil*.
 
 ## 3 bis. Activer Face ID (une seule fois)

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Carnet de dépenses</title>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://btadceaowokrvubaaiui.supabase.co wss://btadceaowokrvubaaiui.supabase.co; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://btadceaowokrvubaaiui.supabase.co wss://btadceaowokrvubaaiui.supabase.co; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
 <meta name="referrer" content="no-referrer">
 <meta name="description" content="Suivi personnel des dépenses en FCFA : budgets, portefeuilles, épargne, tontines et analyses.">
 <meta name="theme-color" content="#04382A">
@@ -39,9 +39,10 @@
     </div>
   </header>
 
-  <main id="main"></main>
-
-  <button class="fab" id="fab" type="button"></button>
+  <div class="stage">
+    <main id="main"></main>
+    <button class="fab" id="fab" type="button"></button>
+  </div>
   <nav class="tabs" id="tabs" aria-label="Sections"></nav>
 </div>
 
