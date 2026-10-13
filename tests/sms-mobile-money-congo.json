@@ -62,5 +62,37 @@
    "kind": "income",
    "who": "MARIE CLAIRE BOUESSO MALONGA"
   }
+ },
+ {
+  "t": "Trans.ID:CI260812.0956.A00001 Vous avez recu 1500.00 CFA du 060000000 de 1000000. Solde actuel: 1569.25 CFA.",
+  "want": {
+   "amount": 1500,
+   "fee": 0,
+   "date": "2026-08-12",
+   "op": "airtel",
+   "kind": "income"
+  }
+ },
+ {
+  "t": "Ref: MP260812.0957.A00002. Paiement de CFA 1500.00 a DATABUNDLE. Pour 400000000000M1500M  Frais: CFA 0.00. Solde: CFA 69.25.",
+  "want": {
+   "amount": 1500,
+   "fee": 0,
+   "date": "2026-08-12",
+   "op": "airtel",
+   "kind": "expense",
+   "who": "DATABUNDLE"
+  }
+ },
+ {
+  "t": "Ref: MP260816.1126.A00003. Paiement de CFA 2500.00 a CANAL PLUS. Pour 100000000000M2500M  Frais: CFA 125.00. Solde: CFA 69.25.",
+  "want": {
+   "amount": 2500,
+   "fee": 125,
+   "date": "2026-08-16",
+   "op": "airtel",
+   "kind": "expense",
+   "who": "CANAL PLUS"
+  }
  }
 ]

@@ -325,7 +325,7 @@ const KEYWORDS={
   transport:['taxi','bus','foula','moto','carburant','essence','gasoil','coaster','course','parking','peage','billet'],
   alimentation:['marche','pain','riz','poisson','viande','manioc','foufou','boulangerie','supermarche','epicerie','huile','sucre','lait','legume','fruit','courses'],
   factures:['e2c','lcde','electricite','courant','facture','canal','fibre','congo telecom','abonnement','gaz','prepaye'],
-  communication:['credit','forfait','data','recharge','airtime','unites','internet mobile','pass'],
+  communication:['credit','forfait','data','databundle','bundle','recharge','airtime','unites','internet mobile','pass'],
   logement:['loyer','bail','caution','agence','menage','gardien'],
   sante:['pharmacie','clinique','hopital','medecin','consultation','medicament','analyse','labo','dentiste'],
   education:['ecole','scolarite','frais scolaires','universite','livre','fourniture','inscription','cours'],
@@ -341,29 +341,48 @@ function guessCategory(note){
   const best=Object.entries(score).sort((a,b)=>b[1]-a[1])[0];
   return best?best[0]:null;
 }
-// Lecture d'un SMS de transaction : montant, frais, date, opérateur, sens de l'opération
+// Lecture d'un SMS de transaction MTN Mobile Money ou Airtel Money : montant, frais, date, opérateur, sens
+// Formats couverts (Congo) : « Vous avez envoye 1552 FCFA a … le 2026-10-03 », « Vous avez retire 11000 XAF … Frais: 385XAF »,
+// « Vous avez paye 320 FCFA pour leap », « Vous avez recu 500 XAF de … », « Trans.ID:CI260812… Vous avez recu 1500.00 CFA »,
+// « Ref: MP260812… Paiement de CFA 1500.00 a DATABUNDLE … Frais: CFA 0.00 ».
 function parseSMS(text){
-  const t=String(text||'').replace(/\u00a0|\u202f/g,' ');
+  const t=String(text||'').replace(/ | /g,' ').replace(/[ \t]+/g,' ');
   if(!t.trim())return null;
-  const num=x=>parseInt(String(x).replace(/\D/g,''),10)||0;
-  const money=[...t.matchAll(/(\d{1,3}(?:[ .,]\d{3})+|\d+)(?:[.,]\d{1,2})?\s*(?:f\s?cfa|fcfa|xaf|cfa|frs?)\b/gi)].map(m=>({v:num(m[1]),i:m.index,pre:norm(t.slice(Math.max(0,m.index-28),m.index))}));
-  const feeM=t.match(/(?:frais|fees?|commission|charges?)\s*(?:de|:|=)?\s*(\d[\d .,]*)/i);
-  const fee=feeM?num(feeM[1]):0;
-  const cand=money.filter(m=>!/solde|balance|nouveau|disponible|frais|fee|commission|charge/.test(m.pre));
+  // « 1 500.00 », « 1500,5 », « 15.500 » : décimales ignorées, séparateurs de milliers retirés
+  const amt=x=>{x=String(x).trim().replace(/[.,]\d{1,2}$/,'');return parseInt(x.replace(/\D/g,''),10)||0};
+  const CUR='(?:f\\s?cfa|fcfa|xaf|cfa|frs?)', NUM='(\\d{1,3}(?:[ .,]\\d{3})+(?:[.,]\\d{1,2})?|\\d+(?:[.,]\\d{1,2})?)';
+  const money=[];
+  for(const m of t.matchAll(new RegExp(NUM+'\\s*'+CUR+'\\b','gi')))money.push({v:amt(m[1]),i:m.index});
+  for(const m of t.matchAll(new RegExp('\\b'+CUR+'\\s*'+NUM,'gi')))money.push({v:amt(m[1]),i:m.index});
+  money.sort((a,b)=>a.i-b.i);
+  const ctx=i=>norm(t.slice(Math.max(0,i-24),i));
+  const feeM=t.match(new RegExp('(?:frais|fees?|commission|charges?)\\s*(?:de|:|=)?\\s*(?:'+CUR+'\\s*)?'+NUM,'i'));
+  const fee=feeM?amt(feeM[1]):0;
+  const cand=money.filter(m=>!/solde|balance|nouveau|disponible|actuel|frais|fee|commission|charge/.test(ctx(m.i)));
   let amount=cand.length?cand[0].v:0;
-  if(!amount){const m=t.match(/(?:montant|amount|somme)\s*(?:de|:|=)?\s*(\d[\d .,]*)/i);if(m)amount=num(m[1])}
-  let date=null;const d1=t.match(/\b(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})\b/), d2=t.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if(!amount){const m=t.match(new RegExp('(?:montant|amount|somme)\\s*(?:de|:|=)?\\s*'+NUM,'i'));if(m)amount=amt(m[1])}
+  // Date : 2026-10-03, 03/10/2026, ou référence Airtel « CI260812 » / « MP260812 » (AAMMJJ)
+  let date=null;
+  const d2=t.match(/\b(\d{4})-(\d{2})-(\d{2})\b/), d1=t.match(/\b(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})\b/), d3=t.match(/\b(?:CI|MP|CO|PP)(\d{2})(\d{2})(\d{2})\.\d{4}/i);
   if(d2)date=`${d2[1]}-${d2[2]}-${d2[3]}`;
   else if(d1){const y=d1[3].length===2?'20'+d1[3]:d1[3];date=`${y}-${pad(+d1[2])}-${pad(+d1[1])}`}
-  if(date&&(isNaN(parseISO(date))||date>isoOf(new Date(Date.now()+864e5))))date=null;
-  // Les SMS de l'expéditeur « MobileMoney » sont ceux de MTN Congo ; Airtel se nomme toujours
-  const n=norm(t), op=/airtel/.test(n)?'airtel':'mtn';
-  const kind=/retrait|withdraw|cash ?out|retire/.test(n)?'withdraw':/(vous avez )?re[cç]u|received|credite|depot|cash ?in|transfert entrant/.test(n)&&!/envoy|paiement|paye|achat|sent/.test(n)?'income':'expense';
+  else if(d3)date=`20${d3[1]}-${d3[2]}-${d3[3]}`;
+  if(date){const dd=parseISO(date);if(isNaN(dd)||dd.getMonth()+1!==+date.slice(5,7)||date>isoOf(new Date(Date.now()+864e5)))date=null}
+  const n=norm(t);
+  // Airtel : nommé, ou reconnaissable à ses références (Trans.ID:CI…, Ref: MP…) et au « CFA » placé avant le montant
+  const op=/airtel|trans\.?\s?id\s*:\s*ci\d|ref\s*:\s*mp\d|solde actuel|\bcfa \d/.test(n)?'airtel':'mtn';
+  const kind=/retrait|withdraw|cash ?out|retire/.test(n)?'withdraw':/re[cç]u|received|credite|depot|cash ?in|transfert entrant/.test(n)&&!/envoy|paiement|paye|achat|sent/.test(n)?'income':'expense';
   let who=null;
   const pay=t.match(/\bpour\s+([^.\n]{2,40}?)\s*\./i);
-  const w=t.match(/(?:\bà|\ba|\bto|\bchez|\bvers|\bde|\bfrom|\bpar)\s+([A-Z][A-Za-zÀ-ÿ'.-]+(?:\s+[A-Z][A-Za-zÀ-ÿ'.-]+){0,4})/);
-  if(kind==='expense'&&pay&&!/promo/i.test(pay[1]))who=pay[1].trim();
-  else if(w&&!/^(MTN|Airtel|Mobile|Money|FCFA|XAF)$/i.test(w[1]))who=w[1].replace(/\s+/g,' ').slice(0,40);
+  const STOP=/^(MTN|Airtel|Mobile|Money|F?CFA|XAF|Frs?|Pour|Frais|Solde|Ref|Trans)$/i;
+  let w=null;
+  for(const m of t.matchAll(/(?:\bà|\ba|\bto|\bchez|\bvers|\bde|\bfrom|\bpar)\s+([A-Z][A-Za-zÀ-ÿ'.-]+(?:\s+[A-Z][A-Za-zÀ-ÿ'.-]+){0,4})/g)){
+    const name=m[1].replace(/\s+/g,' ').replace(/\s+(Pour|Frais|Solde)$/i,'').replace(/[.'-]+$/,'');
+    if(!STOP.test(name.split(' ')[0])){w=name;break}
+  }
+  const okPay=pay&&!/promo|\d{4,}|frais/i.test(pay[1]);
+  if(kind==='expense'&&okPay)who=pay[1].trim();
+  else if(w)who=w.slice(0,40);
   return amount>0?{amount,fee,date,op,kind,who}:null;
 }
 function nextDate(day,fromISO){const f=parseISO(fromISO);let d=new Date(f.getFullYear(),f.getMonth(),Math.min(day,daysIn(ymOf(f))));if(isoOf(d)<fromISO){const n=new Date(f.getFullYear(),f.getMonth()+1,1);d=new Date(n.getFullYear(),n.getMonth(),Math.min(day,daysIn(ymOf(n))))}return isoOf(d)}

@@ -1,5 +1,9 @@
 # Historique des versions
 
+## 2.3.2 (octobre 2026)
+- Lecture des SMS Airtel Money Congo : montant écrit « CFA 1500.00 », frais « CFA 0.00 », date tirée de la référence (Trans.ID CI… ou Ref MP…), marchand après « a » (DATABUNDLE, CANAL PLUS).
+- Jeu de tests SMS anonymisé (MTN et Airtel) : tests/sms-mobile-money-congo.json.
+
 ## 2.3.1 (octobre 2026)
 - Lecture des SMS calée sur les vrais messages MTN Mobile Money Congo : envoi, paiement (« pour leap »), réception, dépôt et retrait chez l'agent, avec frais et date. Opérateur MTN par défaut, Airtel reconnu à son nom.
 
