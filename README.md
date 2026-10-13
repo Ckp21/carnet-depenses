@@ -1,7 +1,7 @@
-# Carnet de dépenses V2.4
+# Carnet de dépenses V2.5
 
 Application personnelle de gestion des dépenses en FCFA, installable sur téléphone et utilisable hors ligne.
-Version 2.4, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
+Version 2.5, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
 
 ---
 
@@ -26,6 +26,19 @@ Version 2.4, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
 
 **Mise à jour d'une base V2.0** : exécuter une fois `supabase/migration-2.1.sql` dans *SQL Editor*, avant ou juste après la mise en ligne.
 
+## 1 ter. Nouveautés de la V2.5
+
+- **Catégories personnalisables** : renommer, recolorer, ajouter les tiennes (dîme, solidarité, coiffure, scolarité, groupe électrogène en un geste).
+- **Cycle de paie** et scénario « salaire en retard » : combien de jours tu tiens, et quelle limite par jour respecter.
+- **Modèles d'objectifs** : rentrée scolaire, terrain par tranches, caution de loyer, cérémonie, fêtes, chantier.
+- **Rappels par notification** : loyer, tontines, dettes, projets, jour de paie, bilan du mois. Guide : `docs/notifications.md`.
+- **Sauvegarde** : copie automatique quotidienne côté serveur (14 jours), restauration avec aperçu, fichier JSON partageable.
+- **Synchronisation** : file d'envoi durable, nouvel essai automatique, indicateur d'état et journal dans Réglages.
+- **Rapport mensuel** : document imprimable en PDF et résumé à envoyer par WhatsApp.
+- **Police hébergée** : plus aucune requête vers un site externe en dehors de Supabase.
+
+**Mise à jour d'une base V2.4** : exécuter `supabase/migration-2.5.sql` dans *SQL Editor* (relançable sans risque). Les rappels demandent en plus la fonction `send-reminders` et sa planification, voir `docs/notifications.md`.
+
 ## 2. Architecture
 
 ```mermaid
@@ -41,9 +54,12 @@ flowchart LR
 | `index.html`, `styles.css`, `app.js` | L'application |
 | `config.js` | Adresse et clé publique Supabase |
 | `lib/supabase.js` | Bibliothèque supabase-js 2.117.2 (MIT), hébergée ici plutôt que sur un CDN |
-| `sw.js`, `manifest.webmanifest`, `icons/` | Installation et fonctionnement hors ligne |
-| `supabase/schema.sql` | Création des tables et des règles de sécurité |
-| `docs/` | Cahier des charges, modèle de données, repères Congo |
+| `sw.js`, `manifest.webmanifest`, `icons/` | Installation, fonctionnement hors ligne, réception des notifications |
+| `fonts/` | Police Montserrat (licence OFL), hébergée dans le dépôt |
+| `supabase/schema.sql` et `migration-*.sql` | Création et évolution des tables et des règles de sécurité |
+| `supabase/functions/send-reminders/` | Fonction qui envoie les rappels (Web Push) |
+| `supabase/cron-rappels.sql` | Modèle de planification de l'envoi, à remplir hors dépôt |
+| `docs/` | Cahier des charges, modèle de données, repères Congo, guide des notifications |
 
 ## 3. Mise en service (une seule fois)
 
@@ -91,12 +107,38 @@ Ensuite, dans l'application : *Réglages > Sécurité > Connexion avec Face ID >
 - Politique CSP : scripts limités à l'application elle-même ; un script injecté ne s'exécute pas.
 - La déconnexion efface la copie locale du téléphone.
 
-## 5. Mettre à jour l'application
+## 5. Sauvegarde, synchronisation et rapports
 
-Modifier les fichiers, puis changer la constante `VERSION` dans `sw.js` (par exemple `carnet-v2.0.1`) avant de pousser. Les téléphones récupèrent la nouvelle version au lancement suivant.
+```mermaid
+flowchart TD
+  A[Saisie sur le téléphone] --> B[Cache local + file d'envoi]
+  B -->|connexion disponible| C[(Supabase)]
+  B -->|hors ligne ou échec| D[Nouvel essai automatique<br/>5 s, 15 s, 45 s, 2 min, puis 5 min]
+  D --> B
+  C --> E[Copie automatique<br/>toutes les 20 h si changement]
+  A --> F[Fichier JSON<br/>Fichiers ou WhatsApp]
+  A --> G[Rapport du mois<br/>PDF ou résumé]
+```
 
-## 6. Limites connues
+| Niveau | Où | Durée de conservation |
+|---|---|---|
+| 1. Cache du téléphone | Navigateur de l'appareil | Jusqu'à la déconnexion |
+| 2. Base Supabase | Serveur | Tant que le projet existe |
+| 3. Copies automatiques | Table `backups` | 14 copies, plus 6 copies manuelles |
+| 4. Fichier JSON | Fichiers, WhatsApp, courriel | À ta charge, rappel après 45 jours |
+
+Le niveau 4 est le seul qui te protège si le compte Supabase est perdu : télécharge un fichier chaque mois. L'offre gratuite de Supabase ne propose pas de sauvegardes téléchargeables et met le projet en pause après environ une semaine sans activité.
+
+Restaurer ne supprime jamais rien : les éléments de la copie sont remis, le reste est conservé.
+
+## 6. Mettre à jour l'application
+
+Modifier les fichiers, puis changer la constante `VERSION` dans `sw.js` (par exemple `carnet-v2.5.1`) avant de pousser. Les téléphones récupèrent la nouvelle version au lancement suivant.
+
+## 7. Limites connues
 
 - Structure de consommation INS de 2011 et prix alimentaires de 2022-2023 (voir `docs/reperes-cout-de-la-vie-congo.md`).
 - En cas de modification du même élément sur deux appareils hors ligne, la dernière synchronisation l'emporte.
-- Le bilan mensuel est calculé dans l'application ; il n'est pas envoyé par e-mail.
+- Le bilan mensuel est calculé dans l'application ; il n'est pas envoyé par e-mail. Une notification te prévient le 1er du mois.
+- Les rappels demandent l'application installée sur l'écran d'accueil (iPhone 16.4 minimum) et un serveur de rappels configuré par toi (voir `docs/notifications.md`).
+- La lecture automatique des SMS n'est pas possible dans une application web : la saisie se fait en collant le SMS.

@@ -1,5 +1,28 @@
 # Historique des versions
 
+## 2.5.0 (octobre 2026)
+- Catégories personnalisables : renommer et recolorer les 11 catégories de base, ajouter les tiennes (jusqu'à 20) avec nature besoin ou envie et mots-clés pour la proposition automatique. Modèles prêts pour le contexte congolais (dîme et offrandes, solidarité deuil et mariage, coiffure, scolarité, groupe électrogène). Une catégorie utilisée s'archive, elle ne se supprime pas.
+- Cycle de paie : jour de paie détecté depuis les salaires notés (ou réglé à la main), compte à rebours jusqu'au prochain salaire, nombre de jours que tes liquidités permettent de tenir à ton rythme actuel, charges à venir comprises.
+- Scénario « salaire en retard » : si le salaire n'est pas arrivé, ce que devient ton budget par jour s'il arrive dans 7, 14, 21 ou 30 jours, avec la limite quotidienne à respecter pour tenir 14 jours.
+- Modèles d'objectifs pour le contexte congolais : rentrée scolaire, terrain par tranches, caution de loyer, cérémonie, fêtes de fin d'année, construction par étapes. Le montant et la mise de côté mensuelle sont calculés avant création dans l'onglet Plan.
+- Rappels par notification (Web Push) : loyer et récurrentes, cotisations et réceptions de tontine, échéances de dettes, prêts et projets, jour de paie, salaire non noté, bilan du mois. Aucun montant dans la notification par défaut. Mise en service : docs/notifications.md.
+- Police Montserrat hébergée dans le dépôt (fonts/) : plus aucune requête vers Google Fonts, CSP réduite à `font-src 'self'`.
+
+### Sauvegarde, synchronisation et reporting
+- Synchronisation à la reconnexion : file d'envoi conservée même après fermeture de l'application, nouvel essai automatique après 5 s, 15 s, 45 s, 2 min 15 s puis toutes les 5 minutes, indicateur d'état (hors ligne, en attente, nouvel essai dans N s), appui sur l'indicateur pour relancer, journal des 8 dernières synchronisations dans Réglages. Un envoi rejoué ne crée jamais de doublon.
+- Copie automatique quotidienne côté serveur (table `backups`) : une copie complète au plus toutes les 20 heures et seulement si les données ont changé, 14 copies conservées plus 6 copies manuelles. Restauration depuis la liste dans Réglages, avec aperçu. Restaurer ne supprime jamais rien.
+- Sauvegarde sur fichier : partage vers Fichiers ou WhatsApp sur iPhone, rappel après 45 jours sans fichier (14 jours après la première utilisation), une fois 20 dépenses notées.
+- Rapport mensuel : document propre (chiffres du mois, catégories et budgets, cinq plus grosses dépenses, moyens de paiement, soldes des portefeuilles, engagements), impression en PDF, résumé partageable par WhatsApp. Le rapport affiche les vrais montants même en mode discret.
+- Bilan du mois précédent : boutons « Rapport complet » et « Partager » dans l'accueil la première semaine du mois.
+
+### Sécurité
+- Nouvelles tables `push_subscriptions`, `reminders` et `backups` : RLS propriétaire, aucun droit pour le rôle anonyme, bornes de taille.
+- Fonction `send-reminders` : POST uniquement, secret partagé comparé à temps constant, clé privée VAPID uniquement dans les secrets, inscriptions expirées supprimées.
+- Service worker : titre, texte et étiquette des notifications bornés et forcés en texte, lien du message ignoré.
+- Import et restauration : identifiants de type texte uniquement et sans nom hérité de l'objet (toString, valueOf), montants plafonnés comme en base (moins de 1 milliard, frais moins de 100 millions), dates limitées à 2000-2100, configuration fusionnée puis nettoyée avant réécriture.
+- Catégories, cycle de paie et rappels lus avec repli sûr : couleurs hors liste, mots-clés, identifiants et valeurs numériques inattendus ignorés.
+- `supabase/migration-2.5.sql` : relançable sans risque. `supabase/cron-rappels.sql` : modèle sans secret.
+
 ## 2.4.0 (octobre 2026)
 - Portefeuilles personnalisables : renommer et recolorer ceux qui existent, en ajouter (type, couleur, solde de départ), les archiver quand leur solde est à 0 et les restaurer. L'historique est toujours conservé.
 - Mode discret refait : les montants sont remplacés par des étoiles (****) partout, comme dans une application bancaire. Les champs de saisie restent lisibles.

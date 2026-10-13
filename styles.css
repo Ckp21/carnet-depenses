@@ -1,3 +1,5 @@
+/* Montserrat hébergée avec l'application : aucune requête vers un site tiers (voir fonts/LISEZ-MOI.txt) */
+@font-face{font-family:"Montserrat";font-style:normal;font-display:swap;font-weight:100 900;src:url(fonts/montserrat-latin-wght-normal.woff2) format("woff2-variations"),url(fonts/montserrat-latin-wght-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 /* Carnet de dépenses V2.1. Charte PNTAC, registre « Outil » : cartes blanches arrondies sur Brume 50,
    sans bordure ni ombre, boutons en pilule, un seul élément orange par vue (le bouton +).
    Typographie : Montserrat, repli officiel de Gotham (règle T-04). Espacements multiples de 4 px. */
@@ -346,3 +348,59 @@ html:has(#app:not([hidden])) body{height:100%;overflow:hidden}
 .gate .band{padding-top:calc(48px + env(safe-area-inset-top,0px))}
 .gate .body{padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
 body{min-height:100vh}
+
+/* Scénarios du cycle de paie */
+.scn{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;row-gap:2px;align-items:center;padding:12px 0;border-top:1px solid var(--mist-100)}
+.rows>.scn:first-child{border-top:none}
+.scn .l{font-weight:500}
+.scn .a{font-weight:700;text-align:right;white-space:nowrap}
+.scn .s{color:var(--ink-500);font-size:13px;line-height:1.35}
+.scn .p{justify-self:end}
+
+.sync{cursor:pointer}
+/* Rapport du mois : lecture à l'écran, impression en PDF */
+.report{position:fixed;inset:0;z-index:60;background:#fff;overflow-y:auto;-webkit-overflow-scrolling:touch;color:var(--ink-900)}
+.rp-bar{position:sticky;top:0;z-index:2;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;background:var(--forest-900)}
+.rp-bar>span{flex:1}
+.rp-btn{height:36px;padding:0 14px;border-radius:999px;border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;font-weight:700;font-size:13px}
+.rp-btn.main{background:var(--orange);border-color:var(--orange)}
+.rp{max-width:760px;margin:0 auto;padding:24px 16px calc(40px + env(safe-area-inset-bottom));font-size:13.5px}
+.rp header{border-bottom:2px solid var(--forest-900);padding-bottom:12px;margin-bottom:16px}
+.rp-brand{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-500)}
+.rp h1{margin:4px 0 4px;font-size:24px;font-weight:800;letter-spacing:-.02em;color:var(--forest-900)}
+.rp h1::first-letter{text-transform:uppercase}
+.rp header p{margin:0;color:var(--ink-500);font-size:12.5px}
+.rp h2{margin:22px 0 6px;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--forest-900)}
+.rp table{width:100%;min-width:0;border-collapse:collapse;font-size:13px}
+.rp th,.rp td{white-space:normal}
+.rp thead th{position:static;background:none}
+.rp th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-500);text-align:left;font-weight:700;padding:6px 4px;border-bottom:1px solid var(--filet)}
+.rp td{padding:7px 4px;border-bottom:1px solid var(--mist-100);vertical-align:top}
+.rp .r{text-align:right}
+.rp .n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.rp tfoot td{font-weight:800;border-top:2px solid var(--forest-900);border-bottom:none}
+.rp-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.rp-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.rp-k{border:1px solid var(--filet);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.rp-k span{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-500);font-weight:700}
+.rp-k b{font-size:19px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.rp-over{color:var(--danger)}
+.rp-line{margin:12px 0 0;color:var(--ink-700);line-height:1.5}
+.rp footer{margin-top:28px;padding-top:10px;border-top:1px solid var(--filet);font-size:11.5px;color:var(--ink-500)}
+@media (min-width:640px){.rp-kpis{grid-template-columns:repeat(4,1fr)}}
+@media (max-width:520px){
+  .rp{padding-left:14px;padding-right:14px}
+  .rp table{font-size:12.5px}
+  .rp th{letter-spacing:.02em;font-size:10.5px;padding:6px 3px}
+  .rp td{padding:7px 3px}
+  .rp-cat th:nth-child(3),.rp-cat td:nth-child(3){display:none}
+}
+@media print{
+  html,body{background:#fff!important;height:auto!important}
+  body>*:not(#report){display:none!important}
+  .report{position:static!important;overflow:visible!important;inset:auto}
+  .rp-bar{display:none!important}
+  .rp{max-width:none;padding:0}
+  .rp h2{break-after:avoid}.rp tr{break-inside:avoid}
+  @page{margin:16mm 14mm}
+}

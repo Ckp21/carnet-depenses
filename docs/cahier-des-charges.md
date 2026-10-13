@@ -32,6 +32,18 @@
 6. Sauvegarde complète et restauration.
 7. Application installable, fonctionnement hors ligne.
 
+## 3 bis. Évolutions livrées en V2.5
+
+1. Catégories personnalisables et modèles locaux (dîme, solidarité, scolarité, coiffure, groupe électrogène).
+2. Cycle de paie et scénario « salaire en retard ».
+3. Modèles d'objectifs (rentrée, terrain, caution, cérémonie, fêtes, chantier).
+4. Rappels par notification (guide : `docs/notifications.md`).
+5. Copie automatique quotidienne, restauration avec aperçu, synchronisation durable avec nouvel essai.
+6. Rapport mensuel imprimable et résumé partageable.
+7. Polices hébergées (aucun site externe contacté hors Supabase).
+
+Évolutions écartées pour l'instant : lecture automatique des SMS (impossible dans une application web, la saisie par collage reste) et contrôle de solde avec les opérateurs.
+
 ## 4. Règles de travail
 
 - Toute évolution conserve le lien et les données.

@@ -1,0 +1,7 @@
+Polices hébergées avec l'application (aucun appel à Google Fonts)
+
+Fichier       : montserrat-latin-wght-normal.woff2 (Montserrat, police variable 100 à 900, jeu de caractères latin)
+Origine       : paquet npm @fontsource-variable/montserrat 5.3.0
+Licence       : SIL Open Font License 1.1 (voir OFL-Montserrat.txt)
+Pourquoi      : l'application fonctionne hors ligne sans dépendre d'un site tiers, et aucune adresse IP n'est transmise à Google.
+Vérification  : npm pack @fontsource-variable/montserrat@5.3.0, puis comparer files/montserrat-latin-wght-normal.woff2

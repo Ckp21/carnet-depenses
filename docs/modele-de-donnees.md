@@ -31,7 +31,31 @@ Clé (`user_id`, `category`), `amount`.
 
 ## `settings` : réglages
 
-Une ligne par utilisateur : `savings_goal` (objectif d'épargne mensuel).
+Une ligne par utilisateur : `savings_goal` (objectif d'épargne mensuel), `opening` (soldes de départ et configuration, taille limitée à 48 Ko), `opening_date`, `emergency_months`, `inflation`.
+
+Le champ `opening` contient les soldes de départ par portefeuille (`especes`, `mtn`, `airtel`, `banque`, `epargne` et les portefeuilles ajoutés) et des clés de configuration commençant par deux tirets bas :
+
+| Clé | Contenu |
+|---|---|
+| `__wallets` | Portefeuilles personnalisés : `id`, `label`, `color`, `kind`, `archived` |
+| `__cats` | Catégories personnalisées et réglages des catégories de base : `id`, `label`, `color` (liste fermée), `need`, `words` (12 maximum), `archived` |
+| `__biens` | Biens du patrimoine : `id`, `name`, `value` |
+| `__cycle` | Jour de paie réglé à la main : `{ "day": 1 à 28 }` |
+| `__rem` | Rappels : `lead` (0, 1 ou 2 jours avant), `hour` (7, 8, 12 ou 18 h, heure de Brazzaville), `amounts` (montant dans la notification) |
+
+Toutes ces clés sont relues avec un repli sûr : une valeur inattendue est ignorée sans toucher à la base.
+
+## `push_subscriptions` : appareils inscrits aux rappels
+
+`endpoint` (clé), `user_id`, `p256dh`, `auth`, `agent`, `created_at`. Supprimée à la déconnexion ou quand le serveur Apple ou Google répond 404 ou 410.
+
+## `reminders` : rappels à envoyer
+
+`id` (déterministe : `r-<type>-<élément>-<date>`), `user_id`, `fire_at` (UTC), `title` (80 caractères), `body` (200), `tag`, `sent_at`, `note`. Recalculés par l'application à chaque synchronisation pour les 45 prochains jours ; un rappel déjà envoyé n'est jamais réécrit. Les rappels envoyés depuis plus de 14 jours sont purgés.
+
+## `backups` : copies automatiques
+
+`id` (uuid), `user_id`, `kind` (`auto` ou `manuel`), `counts` (nombre d'éléments, pour l'affichage), `payload` (copie complète au format du fichier JSON, moins de 20 Mo), `created_at`. Un déclencheur conserve les 14 dernières copies automatiques et les 6 dernières copies manuelles.
 
 ## Règles de calcul
 

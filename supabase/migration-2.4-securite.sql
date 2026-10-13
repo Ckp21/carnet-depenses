@@ -20,7 +20,7 @@ alter table public.moves add constraint moves_borne check (amount < 1000000000 a
 alter table public.plans drop constraint if exists plans_borne;
 alter table public.plans add constraint plans_borne check (amount < 1000000000 and pg_column_size(data) < 8192) not valid;
 alter table public.settings drop constraint if exists settings_borne;
-alter table public.settings add constraint settings_borne check (pg_column_size(opening) < 16384) not valid;
+alter table public.settings add constraint settings_borne check (pg_column_size(opening) < 49152) not valid;
 alter table public.expenses drop constraint if exists expenses_id_len;
 alter table public.expenses add constraint expenses_id_len check (char_length(id) <= 100) not valid;
 alter table public.incomes drop constraint if exists incomes_id_len;
