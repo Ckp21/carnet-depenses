@@ -8,7 +8,10 @@ export TEST_OUT="${TEST_OUT:-/tmp/carnet-tests}"; mkdir -p "$TEST_OUT"
 cd "$ROOT"
 FAILED=(); N=0
 run() { local name="$1"; shift; N=$((N+1)); printf '%-44s' "$name"; local t=$SECONDS
-  if out=$("$@" 2>&1); then echo "ok   ($((SECONDS-t)) s)  $(echo "$out" | grep -E 'réussis' | tail -1)"; else echo "ECHEC"; echo "$out" | tail -25 | sed 's/^/    /'; FAILED+=("$name"); fi; }
+  if out=$("$@" 2>&1); then echo "ok   ($((SECONDS-t)) s)  $(echo "$out" | grep -E 'réussis' | tail -1)"; else echo "ECHEC"; echo "$out" | tail -25 | sed 's/^/    /'; FAILED+=("$name")
+    # Sur GitHub Actions, le détail de l'échec devient une annotation lisible sans ouvrir le journal complet
+    if [ -n "${GITHUB_ACTIONS:-}" ]; then msg=$(echo "$out" | tail -18 | cut -c1-300 | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g'); echo "::error title=Echec : $name::$msg"; fi
+  fi; }
 
 for f in tests/browser/test_*.py; do run "navigateur $(basename "$f" .py | sed 's/^test_//')" python3 "$f"; done
 for f in tests/node/*.js; do run "node $(basename "$f" .js)" node "$f"; done
