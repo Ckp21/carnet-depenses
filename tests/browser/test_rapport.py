@@ -109,6 +109,10 @@ async def main():
     await page.evaluate("openReport(curM())"); await page.wait_for_timeout(200)
     sw=await page.evaluate("[document.getElementById('report').scrollWidth,document.getElementById('report').clientWidth]")
     check('mobile : pas de défilement horizontal',sw[0]<=sw[1]+1,sw)
+    # Police de repli large (cas d'une machine sans Montserrat, ou de l'intégration continue) : le rapport ne doit pas déborder non plus
+    await page.add_style_tag(content="#report,#report *{font-family:'DejaVu Serif',serif!important}"); await page.wait_for_timeout(150)
+    sw2=await page.evaluate("[document.getElementById('report').scrollWidth,document.getElementById('report').clientWidth]")
+    check('mobile : pas de défilement avec une police de repli large',sw2[0]<=sw2[1]+1,sw2)
     await page.evaluate("document.getElementById('report').scrollTop=0")
     await page.screenshot(path=OUT+'/rapport-mobile.png')
     # bilan du mois précédent (affiché les 7 premiers jours)
