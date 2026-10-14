@@ -67,9 +67,9 @@ async def main():
         check('R4 plus à payer et plus réservé', await page.evaluate("recPending().length") == 0)
         check('R4 aucune dépense créée', not any(e['id'] == 'rec-loyer-2026-10' for e in await srv(page, 'expenses')))
         # nouvelle charge : à payer dès ce mois-ci
-        await page.evaluate("S.tab='settings';render()")
-        await page.click('summary:has-text("Ajouter une dépense récurrente")'); await page.wait_for_timeout(200)
-        await page.fill('#r-label', 'Internet'); await page.fill('#r-amount', '15000'); await page.fill('#r-day', '20'); await page.click('[data-act=addRec]'); await page.wait_for_timeout(700)
+        await page.evaluate("S.tab='plan';S.planView='subs';render()")
+        await page.click('[data-sub-new]'); await page.wait_for_timeout(200)
+        await page.fill('#sb-label', 'Internet'); await page.fill('#sb-amt', '15000'); await page.fill('#sb-date', '2026-10-20'); await page.click('[data-act=saveSub]'); await page.wait_for_timeout(700)
         pd = await page.evaluate("recPending().map(p=>[p.r.label,p.m,p.late])")
         check('R5 nouvelle charge à payer ce mois-ci (non en retard)', pd == [['Internet', '2026-10', 0]], pd)
         check('R5 aucune dépense créée toute seule', not any(e.get('recurring_id') and e['date'] >= '2026-10-20' for e in await srv(page, 'expenses')))

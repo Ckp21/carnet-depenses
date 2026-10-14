@@ -10,6 +10,9 @@ PORT = int(os.environ.get('TEST_PORT', '8781'))
 FAKE = os.path.join(HERE, 'fake-supabase.js')
 VAPID = 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DTY'
 
+import re
+APP_VERSION = re.search(r"APP_VERSION='([^']+)'", open(os.path.join(ROOT, 'app.js'), encoding='utf-8').read()).group(1)
+
 def start_server():
     s = subprocess.Popen(['python3', '-m', 'http.server', str(PORT), '--bind', '127.0.0.1'], cwd=ROOT,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

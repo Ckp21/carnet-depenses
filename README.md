@@ -1,7 +1,7 @@
-# Carnet de dépenses V2.6
+# Carnet de dépenses V2.7
 
 Application personnelle de gestion des dépenses en FCFA, installable sur téléphone et utilisable hors ligne.
-Version 2.6, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
+Version 2.7, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
 
 ---
 
@@ -53,6 +53,15 @@ Version 2.6, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
 - **Tests dans le dépôt** et contrôle automatique GitHub : `tests/README.md`.
 
 **Mise à jour d'une base V2.5** : exécuter `supabase/migration-2.6.sql` puis `supabase/cron-sauvegarde.sql` dans *SQL Editor* (relançables sans risque), et redéployer la fonction `send-reminders` (rappel du soir).
+
+## 1 quinquies. Nouveautés de la V2.7
+
+- **Accueil plus clair** : argent disponible, budget du jour avec ce qui reste aujourd'hui, prochaine sortie prévue. La date du jour est dans l'en-tête. Le choix « jusqu'à la prochaine paie » ou « jusqu'à la fin du mois » est dans Réglages.
+- **Abonnements** (Plan > Abonnements) : prochain prélèvement, périodicité, coût mensuel équivalent, totaux par mois et par an, prix en USD ou EUR avec taux appris du montant réellement débité.
+- **Carte prépayée** : portefeuille rechargé depuis Mobile Money, alerte « Recharge la carte avant le X : il faut N FCFA », bouton Recharger.
+- **Détection** dans l'historique, rappels avant renouvellement, fin d'essai gratuit et changement de prix. Guide : `docs/abonnements.md`.
+
+**Mise à jour depuis la V2.6** : rien à faire côté Supabase.
 
 ## 2. Architecture
 

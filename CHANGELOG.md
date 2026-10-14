@@ -1,5 +1,31 @@
 # Historique des versions
 
+## 2.7.0 (octobre 2026)
+
+### Accueil plus clair
+- Bloc principal repensé : « Argent disponible », puis « Budget du jour » (le montant à ne pas dépasser, avec ce qui a déjà été dépensé aujourd'hui et ce qui reste), puis « Prochaine sortie prévue ». Plus de formule ni de vocabulaire technique : le calcul s'ouvre sur demande avec « Comment c'est calculé ? ».
+- Le budget du jour reste stable pendant la journée : une dépense saisie le matin ne le fait plus baisser, elle apparaît dans « Aujourd'hui ».
+- La date du jour s'affiche dans l'en-tête à la place du mois et de l'année (« Mercredi 14 octobre 2026 »). En parcourant les autres mois, l'en-tête affiche le mois ; toucher le libellé ramène à aujourd'hui.
+- Le choix « Jusqu'à la prochaine paie » ou « Jusqu'à la fin du mois » quitte l'accueil : il se règle dans Réglages, sous « Salaire et cycle de paie ». Le réglage déjà choisi est conservé.
+- Si l'argent disponible est nul ou négatif, le bloc l'explique et renvoie vers Comptes au lieu d'afficher des zéros.
+
+### Abonnements
+- Nouvel écran **Plan > Abonnements** : prochain prélèvement de chacun, périodicité (mensuelle, trimestrielle, semestrielle, annuelle), coût mensuel équivalent, total par mois et par an, répartition par moyen de paiement.
+- Les charges récurrentes existantes deviennent des abonnements mensuels, sans aucune écriture au démarrage et sans perte de données. Les paiements déjà enregistrés ne changent pas.
+- Prix en dollars ou en euros avec un taux réglé par toi. À chaque paiement, tu peux saisir le montant réellement débité : le carnet propose de retenir le taux observé (et recalcule les autres abonnements dans cette devise) ou le nouveau prix en FCFA.
+- Carte prépayée comme portefeuille à part, rechargée depuis Mobile Money (frais de recharge réglables). Alerte « Recharge la carte avant le 25 octobre : il faut 15 494 FCFA de plus pour 2 abonnements », bouton « Recharger » qui prépare le transfert. Un solde de carte négatif est signalé sans fausse alerte.
+- Détection d'abonnements dans l'historique : un paiement qui revient à intervalle régulier ou un service en ligne connu est proposé, avec « Ajouter » (formulaire prérempli) ou « Ignorer ».
+- Rappels avant le renouvellement (annuel : une semaine avant), fin d'essai gratuit la veille, changement de prix annoncé trois jours avant, recharge de la carte. L'agenda exporté tient compte de la périodicité.
+- Sur l'accueil, une alerte apparaît seulement quand quelque chose demande une action : recharge de carte, fin d'essai, nouveau prix.
+- Un abonnement se met en pause, se reprend ou se retire avec confirmation ; les dépenses déjà payées sont toujours conservées.
+
+### Sécurité et tests
+- Les nouvelles données (`settings.opening.__subs`) sont assainies à chaque lecture et à l'import : clés dangereuses, nombres absurdes, dates impossibles et textes piégés sont écartés sans toucher à la base.
+- Deux nouveaux lots : `test_abonnements` (75 vérifications) et `test_securite_2_7` (91 vérifications), plus `test_accueil_2_7` (27). Les lots existants sont adaptés au nouvel accueil.
+
+### Mise à jour depuis la 2.6
+Aucune action Supabase : pas de migration, pas de fonction à redéployer. L'application se met à jour toute seule au lancement suivant. Les données existantes sont reprises telles quelles. Retour à la 2.6 possible depuis GitHub : la version 2.6.0 correspond au commit `020c168` de `main`.
+
 ## 2.6.0 (octobre 2026)
 
 ### Intégrité des données

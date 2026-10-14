@@ -51,7 +51,7 @@
 5. Confort : accueil allégé, budget quotidien avec horizon, « Vérifier mon solde », favoris et Annuler, démarrage guidé, rappel du soir, séparation perso et pro, conseils tirés de ses propres chiffres.
 6. Tests automatiques dans le dépôt et contrôle à chaque modification.
 
-## 3 quater. Prévu en V2.7 : abonnements en ligne
+## 3 quater. Évolutions livrées en V2.7 : abonnements en ligne
 
 Besoin exprimé : de nombreux abonnements en ligne, payés par carte prépayée (le courant passe par MTN MoMo). Le risque principal d'une carte prépayée est un renouvellement refusé faute de solde.
 
@@ -61,6 +61,8 @@ Besoin exprimé : de nombreux abonnements en ligne, payés par carte prépayée 
 4. Détection d'abonnements dans l'historique, rappels avant renouvellement et fin d'essai gratuit.
 
 Les charges récurrentes existantes deviennent des abonnements mensuels sans perte de données.
+
+Livré aussi en 2.7 : accueil simplifié (argent disponible, budget du jour, prochaine sortie), date du jour dans l'en-tête, choix de la période du budget du jour déplacé dans Réglages (guide : `docs/abonnements.md`).
 
 Évolutions écartées pour l'instant : lecture automatique des SMS (impossible dans une application web, la saisie par collage reste) et contrôle de solde avec les opérateurs.
 

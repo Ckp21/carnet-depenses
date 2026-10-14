@@ -516,7 +516,7 @@ function cardAlerts(days=30){
     dues.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
     const bal=balance(w), total=sumBy(dues,d=>d.amount);
     let run=bal, k=-1;dues.forEach((d,i)=>{run-=d.amount;if(run<0&&k<0)k=i});
-    out.push({w,label,bal,dues,total,need:Math.max(0,total-bal),by:k>=0?dues[k].date:null,short:k>=0?dues.slice(k):[]});
+    out.push({w,label,bal,dues,total,need:k>=0?Math.max(0,total-bal):0,by:k>=0?dues[k].date:null,short:k>=0?dues.slice(k):[]});
   }
   return out;
 }
@@ -532,7 +532,8 @@ function cardBlock(a){
   if(a.need>0){
     const now=a.by<=t, n=a.short.length;
     st=msg(now?'danger':'warning','Recharge la carte '+(now?'dès maintenant':'avant le '+esc(dLong(a.by))),`Il faut ${fmt(a.need)} de plus pour ${n} abonnement${n>1?'s':''} : ${a.short.map(d=>esc(d.r.label)).join(', ')}.${fee?` Avec ${String(rf).replace('.',',')} % de frais, prévois environ ${fmt(a.need+fee)} depuis ton Mobile Money.`:''}`);
-  }else if(a.dues.length)st=msg('success','Solde suffisant',`Les ${a.dues.length} prélèvement${a.dues.length>1?'s':''} des 30 prochains jours (${fmt(a.total)}) sont couverts.`);
+  }else if(a.bal<0)st=msg('warning','Solde négatif',`La carte affiche ${fmtS(a.bal)}${a.dues.length?'':' et aucun prélèvement n\'est prévu dans les 30 jours'}. Une recharge manque peut-être dans le carnet : touche « Vérifier mon solde » dans Comptes pour recaler.`);
+  else if(a.dues.length)st=msg('success','Solde suffisant',`Les ${a.dues.length} prélèvement${a.dues.length>1?'s':''} des 30 prochains jours (${fmt(a.total)}) sont couverts.`);
   else st='<p class="hint">Aucun prélèvement prévu sur cette carte dans les 30 prochains jours.</p>';
   return `<section class="block"><div class="block-head"><p class="over">${esc(a.label)}</p><small class="num" style="${a.bal<0?'color:var(--danger)':''}">solde ${fmtS(a.bal)}</small></div>${st}<div class="actions"><button type="button" class="${a.need>0?'btn-primary':'btn'} sm" data-recharge="${esc(a.w)}">${ic('swap','s16')}Recharger${a.need>0?' : '+fmt(a.need):''}</button></div></section>`;
 }
@@ -835,12 +836,22 @@ function payCard(){
   }else if(!D.settings.opening_date)h+=`<p class="hint">Saisis tes soldes de départ dans Comptes pour des montants exacts.</p>`;
   return h+'</section>';
 }
+// Période du budget du jour (accueil) : jusqu'à la prochaine paie ou jusqu'à la fin du mois
+function hzChoice(P){
+  const H=horizon(), pref=cfgHz()||(H.pay?'pay':'month');
+  if(!P)return '<p class="hint">Budget du jour : sans jour de paie, il est calculé jusqu\'à la fin du mois.</p>';
+  const opt=[['pay','Jusqu\'à la prochaine paie',H.pay?H.pay.n+' j':P.late?'salaire en retard':'-'],['month','Jusqu\'à la fin du mois',H.month.n+' j']];
+  return `<div class="form-row"><span>Budget du jour<span class="meta" style="display:block">Période sur laquelle l'accueil répartit ton argent</span></span></div>
+    <div class="hzseg set" role="group" aria-label="Période du budget du jour">${opt.map(([k,l,n])=>`<button type="button" data-hz="${k}" aria-pressed="${pref===k}">${l}<small>${n}</small></button>`).join('')}</div>
+    ${P.late?'<p class="hint">Ton salaire est en retard : en attendant, le calcul va jusqu\'à la fin du mois.</p>':''}`;
+}
 function cycleSettings(){
   const P=payInfo(), d=payDay();
   return `<section class="block"><p class="over">Salaire et cycle de paie</p><p class="hint">Indique ton jour de paie habituel. Le carnet calcule combien de jours tu tiens avec tes liquidités, et ce qu'il te reste par jour si le salaire tarde.</p>
     <div class="form-row"><span>Jour de paie habituel<span class="meta" style="display:block">de 1 à 28, vide si ton salaire est irrégulier</span></span><label class="field"><input class="r" id="cy-day" inputmode="numeric" maxlength="2" value="${d||''}" placeholder="-" aria-label="Jour de paie"><span>du mois</span></label></div>
     ${P?`<p class="hint">Prochain salaire attendu : <b>${esc(dLong(P.next))}</b>${P.late?` (en retard de ${P.late} jour${P.late>1?'s':''})`:''}. ${P.last?'Dernier salaire noté le '+esc(dLong(P.last.date))+'.':'Aucun salaire noté pour l\'instant : ajoute-le dans Comptes, source « Salaire ».'}</p>`:''}
-    <div class="actions"><button type="button" class="btn-primary" data-act="saveCycle">Enregistrer</button></div></section>`;
+    <div class="actions"><button type="button" class="btn-primary" data-act="saveCycle">Enregistrer</button></div>
+    <div style="border-top:1px solid var(--mist-100);margin-top:14px;padding-top:4px">${hzChoice(P)}</div></section>`;
 }
 function saveCycle(){
   const raw=$('cy-day').value.trim(), d=toInt(raw);
@@ -1016,13 +1027,18 @@ function lineChart(xs,series,opts={}){
 const keys=list=>`<div class="keys">${list.map(([n,c])=>`<span><i style="background:${c}"></i>${esc(n)}</span>`).join('')}</div>`;
 
 /* ---------- Rendu ---------- */
+// Mois en cours : la date du jour en toutes lettres ; autre mois : mois et année (toucher pour revenir à aujourd'hui)
+const capFirst=x=>x.charAt(0).toUpperCase()+x.slice(1);
+const headLabel=()=>capFirst(S.month===curM()?new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):mLong(S.month));
 const TABS=[['dash','Accueil','home'],['list','Dépenses','list'],['accounts','Comptes','wallet'],['plan','Plan','target'],['analyse','Analyse','chart']];
 function render(){
   if($('app').hidden)return;
   if(rebuildWallets())refreshWalletChips();
   if(rebuildCats())refreshCatChips();
   normalizeData();
-  $('monthLabel').textContent=mLong(S.month);
+  const mlab=$('monthLabel'), isNow=S.month===curM();
+  mlab.textContent=headLabel();mlab.classList.toggle('back',!isNow);
+  if(isNow)mlab.removeAttribute('title');else mlab.title='Revenir à aujourd\'hui';
   const sbar=$('scopeBar');
   if(hasPro()){sbar.hidden=false;sbar.innerHTML=['all','perso','pro'].map(k=>`<button type="button" data-scope="${k}" aria-pressed="${scopeOn()===k}">${SCOPE_LABEL[k]}</button>`).join('')}else sbar.hidden=true;
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-current',b.dataset.tab===S.tab?'page':'false'));
@@ -1047,13 +1063,14 @@ function savedAside(m){
 }
 // Un seul budget quotidien, avec un horizon au choix : prochaine paie ou fin du mois
 function horizon(){
-  const P=payInfo(), month={kind:'month',n:daysIn(curM())-new Date().getDate()+1,label:'jusqu\'à la fin du mois',short:'Fin du mois'};
-  const pay=P&&!P.late&&P.wait>0?{kind:'pay',n:P.wait,label:'jusqu\'à ma prochaine paie',short:'Prochaine paie'}:null;
+  const P=payInfo(), cm=curM();
+  const month={kind:'month',n:daysIn(cm)-new Date().getDate()+1,label:'jusqu\'à la fin du mois',short:'Fin du mois',end:cm+'-'+pad(daysIn(cm))};
+  const pay=P&&!P.late&&P.wait>0?{kind:'pay',n:P.wait,label:'jusqu\'à ta prochaine paie',short:'Prochaine paie',end:P.next}:null;
   const pref=cfgHz()||(pay?'pay':'month');
   return {cur:pref==='pay'&&pay?pay:month,pay,month,late:!!(P&&P.late),hasDay:!!P};
 }
 // Prochaine sortie d'argent connue (charge à payer, tontine, dette, projet) sur 30 jours, les retards d'abord
-function setHz(k){if(k!=='pay'&&k!=='month')return;mutate([settingsRow({opening:Object.assign({},D.settings.opening,{__hz:k})})])}
+function setHz(k){if(k!=='pay'&&k!=='month')return;mutate([settingsRow({opening:Object.assign({},D.settings.opening,{__hz:k})})]);toast(k==='pay'?'Budget du jour calculé jusqu\'à ta prochaine paie':'Budget du jour calculé jusqu\'à la fin du mois')}
 function nextDue(){
   const t=todayISO(), end=addDays(t,30), list=[];
   for(const r of Object.values(D.recurring)){if(!r.active||!recInScope(r))continue;for(const o of recDueList(r,end))list.push({label:r.label,date:o.date,amount:recAmt(r,o.date)+(r.fee||0),late:o.date<t?daysBetween(o.date,t):0})}
@@ -1064,22 +1081,39 @@ function nextDue(){
 function heroNow(){
   const set=!!(D.settings.opening_date||incomes().length), sc=scopeOn()!=='all'?' · '+SCOPE_LABEL[scopeOn()].toLowerCase():'';
   if(!set)return `<section class="block hero" id="hero"><div class="block-head"><p class="over">Argent disponible${esc(sc)}</p>${eyeBtn()}</div><div class="big num">-</div><p class="sub">Indique ce que tu as en poche et sur tes comptes. Le carnet en déduit ce que tu peux dépenser chaque jour.</p><div class="actions"><button type="button" class="btn-primary sm" data-act="startOnb">Renseigner mes soldes</button></div></section>`;
-  const H=horizon(), sel=H.cur, cash=liquid(), plan=committed(sel.n), per=(cash-plan)/sel.n, rate=dailyRate(), nd=nextDue();
-  const hz=H.pay?`<div class="hzseg" role="group" aria-label="Horizon du calcul">${[H.pay,H.month].map(x=>`<button type="button" data-hz="${x.kind}" aria-pressed="${sel.kind===x.kind}">${x.short}<small>${x.n} j</small></button>`).join('')}</div>`:'';
+  const H=horizon(), sel=H.cur, t=todayISO(), cash=liquid(), plan=committed(sel.n), rate=dailyRate(), nd=nextDue();
+  // Dépensé aujourd'hui hors charges récurrentes (elles sont déjà dans les sorties prévues) : le budget du jour reste stable dans la journée
+  const vt=sumBy(expenses().filter(e=>e.date===t&&!e.recurring_id&&inScope(isProExp(e))),spend);
+  const raw=(cash+vt-plan)/sel.n, budget=Math.max(0,raw), left=budget-vt;
   const note=H.pay?'':H.late?'Ton salaire est en retard : le calcul va jusqu\'à la fin du mois.':H.hasDay?'':'<button type="button" class="linkbtn" data-tab="settings">Indique ton jour de paie pour calculer jusqu\'à la prochaine paie</button>';
-  const ndHtml=nd?`<div class="nd"><span class="t"><span>${esc(nd.label)}</span><span>${nd.late?'en retard de '+nd.late+' jour'+(nd.late>1?'s':''):nd.date===todayISO()?'aujourd\'hui':dLong(nd.date)}</span></span><b class="num">${fmt(nd.amount)}</b></div>`:'<p class="sub">Rien de prévu sur les 30 prochains jours.</p>';
-  let h=`<section class="block hero" id="hero"><div class="block-head"><p class="over">Argent disponible${esc(sc)}</p>${eyeBtn()}</div>
+  const ndWhen=nd?(nd.late?'en retard de '+nd.late+' jour'+(nd.late>1?'s':''):nd.date===t?'aujourd\'hui':(daysBetween(t,nd.date)===1?'demain':'dans '+daysBetween(t,nd.date)+' jours')+' · '+dShort(nd.date)):'';
+  const ndHtml=nd?`<div class="nd"><span class="t"><span>${esc(nd.label)}</span><span>${esc(ndWhen)}</span></span><b class="num">${fmt(nd.amount)}</b></div>`:'<p class="sub">Aucune sortie prévue sur les 30 prochains jours.</p>';
+  const head=`<div class="block-head"><p class="over">Argent disponible${esc(sc)}</p>${eyeBtn()}</div>
     <div class="big num" id="hero-cash">${fmtN(cash)} <small>FCFA</small></div>
-    <div class="sub"><span>Espèces, Mobile Money et banque, hors épargne</span></div>
-    <div class="hz"><p class="over">Utilisable par jour ${esc(sel.label)}</p>
-      <div class="big2 num" id="hero-day">${fmtN(Math.max(0,per))} <small>FCFA par jour</small></div>
-      ${hz}
-      <p class="sub num" id="hero-calc">(${fmt(cash)} − ${fmt(plan)} de sorties prévues) ÷ ${sel.n} jour${sel.n>1?'s':''}${rate>0?` · ton rythme actuel : ${fmt(rate)} par jour`:''}</p>
-      ${note?`<p class="sub">${note}</p>`:''}</div>
-    <div class="hz"><p class="over">Prochaine échéance</p>${ndHtml}</div></section>`;
-  if(cash<=0)h+=msg('warning','Argent disponible nul ou négatif','Selon le carnet, tes portefeuilles hors épargne sont vides. Si ce n\'est pas le cas, touche « Vérifier » dans Comptes pour caler le carnet sur ton solde réel.');
-  else if(per<=0)h+=msg('danger','Sorties prévues supérieures à ton argent',`Tes charges à payer, tontines et dettes d'ici ${sel.n} jour${sel.n>1?'s':''} (${fmt(plan)}) dépassent ton argent disponible (${fmt(cash)}).`);
-  else if(rate>0&&per<rate*.7)h+=msg('warning','Rythme trop rapide pour cette période',`Tu dépenses en moyenne ${fmt(rate)} par jour. Pour tenir ${sel.label}, limite-toi à ${fmt(per)}.`);
+    <div class="sub"><span>Espèces, Mobile Money et banque, sans l'épargne</span></div>`;
+  let h;
+  if(cash<=0){
+    h=`<section class="block hero" id="hero">${head}
+      <div class="hz"><p class="over">Budget du jour</p><p class="sub">D'après le carnet, le solde de tes portefeuilles est nul ou négatif : impossible de calculer un budget. Si ce n'est pas le cas, mets tes soldes à jour dans Comptes.</p>
+        <div class="actions"><button type="button" class="btn-primary sm" data-tab="accounts">Ouvrir Comptes</button></div></div>
+      <div class="hz"><p class="over">Prochaine sortie prévue</p>${ndHtml}</div></section>`;
+  }else{
+    const over=left<0, pct=budget>0?Math.min(vt/budget,1)*100:(vt>0?100:0);
+    const today=vt>0?`<div class="bar" aria-hidden="true"><div style="width:${pct.toFixed(0)}%;${over?'background:var(--orange)':''}"></div></div>
+      <p class="sub num" id="hero-today"><span>Aujourd'hui : <b>${fmt(vt)}</b> dépensés, ${over?'<b class="accent">'+fmt(-left)+' de plus que ton budget</b>':'il reste <b>'+fmt(left)+'</b>'}.</span></p>`
+      :`<p class="sub" id="hero-today">Rien dépensé aujourd'hui.</p>`;
+    h=`<section class="block hero" id="hero">${head}
+      <div class="hz"><p class="over">Budget du jour</p>
+        <div class="big2 num" id="hero-day">${fmtN(budget)} <small>FCFA par jour</small></div>
+        ${today}
+        <p class="sub">À ne pas dépasser pour tenir ${esc(sel.label)}, le ${esc(dShort(sel.end))} (${sel.n} jour${sel.n>1?'s':''}).</p>
+        ${note?`<p class="sub">${note}</p>`:''}
+        <details class="calc" data-keep="calcopen" ${S.calcopen?'open':''}><summary>Comment c'est calculé ?</summary>
+          <div class="calcl num" id="hero-calc"><span>Argent disponible ce matin</span><b>${fmt(cash+vt)}</b><span>Sorties déjà prévues (charges à payer, tontines, dettes)</span><b>− ${fmt(plan)}</b><span>À répartir sur ${sel.n} jour${sel.n>1?'s':''}</span><b>${fmt(budget)} par jour</b>${rate>0?`<span>Ton rythme actuel</span><b>${fmt(rate)} par jour</b>`:''}</div><p class="sub">Période : ${esc(sel.label)}. <button type="button" class="linkbtn" data-tab="settings">Changer dans Réglages</button></p></details></div>
+      <div class="hz"><p class="over">Prochaine sortie prévue</p>${ndHtml}</div></section>`;
+    if(raw<=0)h+=msg('danger','Sorties prévues supérieures à ton argent',`Tes charges à payer, tontines et dettes d'ici ${sel.n} jour${sel.n>1?'s':''} (${fmt(plan)}) dépassent ton argent disponible (${fmt(cash+vt)}).`);
+    else if(rate>0&&budget<rate*.7)h+=msg('warning','Rythme trop rapide pour cette période',`Tu dépenses en moyenne ${fmt(rate)} par jour. Pour tenir ${sel.label}, limite-toi à ${fmt(budget)}.`);
+  }
   return h;
 }
 function heroPast(m){
@@ -1671,7 +1705,7 @@ function renderAnalyse(){
 
 function renderGuide(){
   const G=[['Argent disponible','Ce que contiennent tes portefeuilles hors épargne (espèces, Mobile Money, banque), d\'après tes soldes de départ et les opérations notées.'],
-    ['Utilisable par jour','(argent disponible − sorties déjà prévues) ÷ nombre de jours jusqu\'à l\'horizon choisi : prochaine paie ou fin du mois. Les sorties prévues sont les charges à payer, les tontines et les dettes.'],
+    ['Budget du jour','(argent disponible − sorties déjà prévues) ÷ nombre de jours jusqu\'à la prochaine paie ou la fin du mois, au choix. Les sorties prévues sont les charges à payer, les tontines et les dettes. Ce qui est dépensé aujourd\'hui se compare à ce budget sans le faire bouger.'],
     ['Excédent du mois','Entrées du mois moins dépenses du mois. Ce n\'est pas de l\'épargne tant que tu ne l\'as pas mis de côté.'],
     ['Épargne mise de côté','Les sommes virées vers ton portefeuille Épargne dans le mois, moins les retraits.'],
     ['Reste à vivre','Entrées du mois moins charges fixes, engagements et épargne visée.'],
@@ -2645,6 +2679,7 @@ $('importFile').addEventListener('change',async ev=>{
   try{pendingImport=parseBackup(await f.text());S.tab='settings';render();$('main').scrollTop=$('main').scrollHeight}catch(e){toast(e.message||'Fichier illisible')}
 });
 $('fab').onclick=()=>openSheet(null,'expense');
+$('monthLabel').onclick=()=>{if(S.month!==curM()){S.month=curM();S.filter='all';render()}};
 $('prevM').onclick=()=>{S.month=shiftM(S.month,-1);S.filter='all';render()};
 $('nextM').onclick=()=>{S.month=shiftM(S.month,1);S.filter='all';render()};
 $('f').addEventListener('submit',saveSheet);
