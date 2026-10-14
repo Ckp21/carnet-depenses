@@ -35,6 +35,7 @@
         <button type="button" id="nextM" aria-label="Mois suivant"></button>
       </div>
     </div>
+    <div class="scope" id="scopeBar" role="group" aria-label="Perso ou pro" hidden></div>
   </header>
 
   <div class="stage">
@@ -48,6 +49,7 @@
   <div class="scrim" data-act="close"></div>
   <form class="sheet" id="f" novalidate>
     <div class="sheet-head"><h2 id="sheetTitle">Nouvelle dépense</h2><button type="button" class="x" data-act="close" aria-label="Fermer" id="closeBtn"></button></div>
+    <p class="hint" id="coach" hidden>Première dépense : indique le montant, choisis la catégorie et le moyen de paiement. Tu peux aussi coller un SMS Mobile Money pour tout remplir.</p>
     <div class="seg" id="kindSeg" role="group" aria-label="Type d'opération">
       <button type="button" data-kind="expense" aria-pressed="true">Dépense</button>
       <button type="button" data-kind="income" aria-pressed="false">Entrée</button>
@@ -57,6 +59,7 @@
       <div id="smsArea" class="add" hidden><label class="inp">SMS reçu de MTN MoMo ou Airtel Money<textarea id="smsText" rows="4" placeholder="Colle ici le SMS de la transaction"></textarea></label>
         <div class="actions"><button type="button" class="btn sm" data-act="smsParse">Analyser le SMS</button></div><p class="hint" id="smsInfo" hidden></p></div></div>
     <label class="inp" id="fs-mkind" hidden>type de mouvement<select id="f-mkind"></select></label>
+    <div class="favchips" id="favchips" hidden></div>
     <label class="amount"><input id="f-amount" inputmode="numeric" autocomplete="off" placeholder="0" aria-label="Montant"><span>FCFA</span></label>
     <div class="quick" id="quick"></div>
     <fieldset id="fs-cat"><legend>Catégorie</legend><div class="chips" id="f-cats"></div><p class="hint" id="catHint" hidden></p></fieldset>
@@ -78,6 +81,13 @@
     </div>
   </form>
 </div>
+
+<div class="sheet-wrap" id="dlgWrap" hidden>
+  <div class="scrim" data-act="dlgClose"></div>
+  <div class="sheet" id="dlg" role="dialog" aria-modal="true"></div>
+</div>
+
+<div class="onb" id="onb" hidden></div>
 
 <div class="report" id="report" hidden></div>
 
