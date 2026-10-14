@@ -29,7 +29,7 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql://postgres@localhost:5432/postgres
-      TEST_OUT: ${{ runner.temp }}/carnet-tests
+      TEST_OUT: /tmp/carnet-tests
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -52,6 +52,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: captures-tests
-          path: ${{ runner.temp }}/carnet-tests
+          path: /tmp/carnet-tests
           if-no-files-found: ignore
           retention-days: 7
