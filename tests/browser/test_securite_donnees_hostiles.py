@@ -4,6 +4,8 @@ import os, sys
 HERE=os.path.dirname(os.path.abspath(__file__)); ROOT=os.path.abspath(os.path.join(HERE,'..','..')); T=HERE; FAKE=os.path.join(HERE,'fake-supabase.js'); FIX=os.path.join(HERE,'fixtures')
 OUT=os.environ.get('TEST_OUT','/tmp/carnet-tests'); os.makedirs(OUT,exist_ok=True)
 SNOOZE = '''try{localStorage.setItem('cd2-onb-snooze','"2999-01-01"')}catch(e){}'''
+ok=[];bad=[]
+def check(n,c): (ok if c else bad).append(n)
 srv=subprocess.Popen(['python3','-m','http.server','8777','--bind','127.0.0.1'],cwd=ROOT,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); time.sleep(1)
 base=json.load(open(os.path.join(HERE,'seed.json')))
 P='"><img src=x onerror=window.__x=1><b onmouseover=window.__x=1 x="'
@@ -50,6 +52,7 @@ async def run(b,name,seed):
     x=await page.evaluate("window.__x||0"); dom=await page.evaluate("document.querySelectorAll('img[src=x],[onmouseover],[onerror]').length")
     print(f"{name}: exécution={x} injections_DOM={dom} lignes_ouvertes={n} erreurs_JS={len(errs)}", errs[:3])
     res[name]=(x,dom,errs)
+    check(name+' : aucun script exécuté',x==0); check(name+' : aucune injection dans le DOM',dom==0); check(name+' : aucune erreur JS',not errs); check(name+' : des lignes ont pu s\'ouvrir',n>0 or 'tout' in name)
     await ctx.close()
 async def main():
   async with async_playwright() as p:
@@ -58,3 +61,6 @@ async def main():
     await run(b,'base empoisonnée (tout)',poison(base,False))
     await b.close()
 asyncio.run(main()); srv.terminate()
+print(len(ok),'réussis,',len(bad),'échecs')
+for x in bad: print('  -',x)
+sys.exit(1 if bad else 0)

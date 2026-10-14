@@ -104,7 +104,8 @@ const mDate=m=>{const [y,mo]=m.split('-').map(Number);return new Date(y,mo-1,1)}
 const mLong=m=>mDate(m).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
 const mName=m=>mDate(m).toLocaleDateString('fr-FR',{month:'long'});
 const mShort=m=>mDate(m).toLocaleDateString('fr-FR',{month:'short'}).replace('.','');
-const dFr=iso=>{const [y,m,d]=iso.split('-');return d+'/'+m+'/'+y};
+// Toujours un texte sûr : une valeur qui n'est pas une date (donnée piégée venant de la base) donne « - », jamais du texte brut
+const dFr=iso=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso==null?'':iso));return m?m[3]+'/'+m[2]+'/'+m[1]:'-'};
 const dLong=iso=>parseISO(iso).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
 const daysBetween=(a,b)=>Math.round((parseISO(b)-parseISO(a))/864e5);
 const addDays=(iso,n)=>{const d=parseISO(iso);return isoOf(new Date(d.getFullYear(),d.getMonth(),d.getDate()+n))};

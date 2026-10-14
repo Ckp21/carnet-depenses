@@ -4,6 +4,7 @@ import os, sys
 HERE=os.path.dirname(os.path.abspath(__file__)); ROOT=os.path.abspath(os.path.join(HERE,'..','..')); T=HERE; FAKE=os.path.join(HERE,'fake-supabase.js'); FIX=os.path.join(HERE,'fixtures')
 OUT=os.environ.get('TEST_OUT','/tmp/carnet-tests'); os.makedirs(OUT,exist_ok=True)
 SNOOZE = '''try{localStorage.setItem('cd2-onb-snooze','"2999-01-01"')}catch(e){}'''
+FREEZE="(()=>{const R=Date,off=1791882000000-R.now();class D2 extends R{constructor(...a){if(a.length)super(...a);else super(R.now()+off)}static now(){return R.now()+off}}window.Date=D2})();"
 srv=subprocess.Popen(['python3','-m','http.server','8769','--bind','127.0.0.1'],cwd=ROOT,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); time.sleep(1)
 seed=open(os.path.join(HERE,'seed.json')).read()
 ok=[];bad=[]
@@ -11,7 +12,8 @@ def check(name,cond): (ok if cond else bad).append(name)
 async def main():
   async with async_playwright() as p:
     b=await p.chromium.launch()
-    ctx=await b.new_context(viewport={'width':390,'height':844},service_workers='block',accept_downloads=True)
+    ctx=await b.new_context(viewport={'width':390,'height':844},service_workers='block',accept_downloads=True,timezone_id='Africa/Brazzaville')
+    await ctx.add_init_script(FREEZE)
     await ctx.add_init_script(f"if(!sessionStorage.getItem('srv'))sessionStorage.setItem('srv',{json.dumps(seed)});")
     await ctx.add_init_script(SNOOZE)
     page=await ctx.new_page(); errs=[]; page.on('pageerror',lambda e:errs.append(str(e)))
@@ -19,6 +21,7 @@ async def main():
     await page.route('**/config.js',lambda r:r.fulfill(body='window.CARNET_CONFIG={SUPABASE_URL:"https://x.supabase.co",SUPABASE_ANON_KEY:"k"}',content_type='application/javascript'))
     await page.goto('http://127.0.0.1:8769/index.html'); await page.wait_for_timeout(900)
     await page.screenshot(path=OUT+'/v23-dash.png',full_page=True)
+    await page.click('#moreBtn'); await page.wait_for_timeout(200)
     txt=await page.inner_text('main')
     check('à venir',('À venir' in txt) or ('À VENIR' in txt.upper()))
     # SMS
@@ -62,6 +65,7 @@ async def main():
     await page.screenshot(path=OUT+'/v23-plan.png',full_page=True)
     # calendrier
     await page.click('[data-tab=dash]')
+    if not await page.is_visible('[data-act=ics]'): await page.click('#moreBtn'); await page.wait_for_timeout(200)
     async with page.expect_download() as d: await page.click('[data-act=ics]')
     dl=await d.value; await dl.save_as(OUT+'/e.ics'); ics=open(OUT+'/e.ics').read()
     check('ics valide','BEGIN:VCALENDAR' in ics and 'RRULE:FREQ=MONTHLY;BYMONTHDAY=1' in ics)
@@ -71,6 +75,9 @@ async def main():
       sw=await page.evaluate('document.documentElement.scrollWidth'); check('largeur '+tab,sw<=390)
     srv_=await page.evaluate('window.__srv'); check('synchro serveur',len(srv_['expenses'])==299 and srv_['settings'][0]['opening'].get('__biens'))
     check('aucune erreur JS',not errs)
-    print('OK',ok);print('ÉCHECS',bad);print('ERR',errs[:3])
+    print(len(ok),'réussis,',len(bad),'échecs')
+    for x in bad: print('  -',x)
+    if errs: print('ERR',errs[:3]); bad.append('erreurs JS')
     await b.close()
-asyncio.run(main()); srv.terminate()
+    return 1 if bad else 0
+rc=asyncio.run(main()); srv.terminate(); sys.exit(rc)

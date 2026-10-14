@@ -11,7 +11,8 @@ async def main():
     b=await p.chromium.launch(); ctx=await b.new_context(viewport={'width':390,'height':844},service_workers='allow',accept_downloads=True)
     await ctx.add_init_script(f"if(!sessionStorage.getItem('srv'))sessionStorage.setItem('srv',{json.dumps(seed)});")
     await ctx.add_init_script(SNOOZE)
-    page=await ctx.new_page(); msgs=[]
+    page=await ctx.new_page(); msgs=[]; errs=[]
+    page.on('pageerror',lambda e:errs.append(str(e)))
     page.on('console',lambda m:msgs.append(m.text) if 'Content Security' in m.text or 'Refused' in m.text else None)
     await page.route('**/lib/supabase.js',lambda r:r.fulfill(path=FAKE,content_type='application/javascript'))
     await page.route('**/config.js',lambda r:r.fulfill(body='window.CARNET_CONFIG={SUPABASE_URL:"https://btadceaowokrvubaaiui.supabase.co",SUPABASE_ANON_KEY:"k"}',content_type='application/javascript'))
@@ -20,6 +21,10 @@ async def main():
     await page.click('#fab'); await page.click('#smsToggle'); await page.fill('#smsText','Vous avez envoye 500 FCFA a MARC NGOMA le 2026-10-10'); await page.click('[data-act=smsParse]'); await page.click('#closeBtn')
     async with page.expect_download() as dl: await page.evaluate("exportCSV('all')")
     sw=await page.evaluate("navigator.serviceWorker.getRegistrations().then(r=>r.length)")
-    print('app visible:',await page.is_visible('#app'),'| service worker:',sw,'| violations CSP:',[m[:140] for m in msgs])
+    vis=await page.is_visible('#app')
+    print('app visible:',vis,'| service worker:',sw,'| violations CSP:',[m[:140] for m in msgs],'| erreurs JS:',errs[:3])
     await b.close()
-asyncio.run(main()); srv.terminate()
+    bad=[n for n,c in [('application visible',vis),('service worker enregistré',sw==1),('aucune violation CSP',not msgs),('aucune erreur JS',not errs)] if not c]
+    for x in bad: print('ECHEC',x)
+    return 1 if bad else 0
+rc=asyncio.run(main()); srv.terminate(); sys.exit(rc)

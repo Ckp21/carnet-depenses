@@ -112,4 +112,6 @@ async def main():
     check('aucune erreur JS',not page.errs); print('erreurs',page.errs[:3])
     await b.close()
 asyncio.run(main()); srv.terminate()
-print('OK',ok); print('ÉCHECS',bad)
+print(len(ok),'réussis,',len(bad),'échecs')
+for x in bad: print('  -',x)
+sys.exit(1 if bad else 0)

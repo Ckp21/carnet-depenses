@@ -1,5 +1,50 @@
 # Historique des versions
 
+## 2.6.0 (octobre 2026)
+
+### Intégrité des données
+- Opérations refusées par le serveur : elles restent visibles dans « Opérations à corriger » (accueil et Réglages) avec la cause, jamais présentées comme enregistrées. Pour chacune : Réessayer, Modifier (saisie préremplie) ou Abandonner (avec confirmation). Elles survivent à la fermeture de l'application.
+- Dépenses récurrentes : plus de dépense créée toute seule. Chaque échéance passe par « À payer » puis « Payé » avec « Confirmer le paiement » : montant réel, portefeuille et date du paiement (le loyer prévu le 5 et payé le 12 pour 82 000 FCFA est noté tel quel). « Pas ce mois-ci » demande confirmation. Retard affiché en jours, limité aux 3 derniers mois, pas de retard cumulé après une pause. Les prévisions et le reste à vivre réservent les montants à payer. Les mois déjà générés par la 2.5 restent considérés comme payés.
+- Détection des changements de sauvegarde sur le contenu et non plus sur la taille : un budget ou un réglage modifié sans changer la longueur du fichier est maintenant détecté. Les dates techniques et l'ordre sont ignorés.
+- Restauration avec aperçu : ajoutés, remplacés, conservés (absents de la copie), budgets compris, avec exemples lisibles. Annuler ne change rien. Une copie de sécurité est faite juste avant. Rien n'est jamais supprimé.
+
+### Sauvegarde indépendante de l'application
+- Copie serveur de nuit (03 h 30 à Brazzaville) faite par la base elle-même, sans ouvrir l'application, seulement si le contenu a changé : 14 copies conservées. Elle se restaure depuis Réglages comme les autres. Voir docs/sauvegardes.md.
+- Date de la dernière copie réussie affichée en clair, avec explication du fonctionnement, alerte si aucune copie récente, et message clair si la copie de nuit n'est pas encore activée.
+
+### Accès et retours des testeurs
+- « Mot de passe oublié » : e-mail de réinitialisation avec lien de retour vers l'application, compte à rebours anti-répétition, limite de débit expliquée, lien expiré expliqué, réponse qui ne révèle pas si l'adresse existe.
+- Choix du nouveau mot de passe (8 caractères, lettres et chiffres, pas un mot de passe courant, confirmation) et changement du mot de passe depuis Réglages. Case « Afficher le mot de passe » à la connexion.
+- « Aide et retours » dans Réglages : « Envoyer le retour » avec un diagnostic joint (version, appareil, écran, aucune donnée financière), partage par le menu du téléphone, conservé hors ligne et envoyé au retour de la connexion.
+- Journal des incidents anonymisé : une erreur de l'application est enregistrée sans aucun montant, nombre long ni adresse e-mail, avec la version et l'écran seulement. Limité à 60 lignes par heure et 300 conservées. Voir docs/retours-testeurs.md.
+
+### Confort d'usage
+- Accueil allégé : trois informations (argent disponible, utilisable par jour, prochaine échéance) et un bouton pour voir les détails. Le reste (reste à vivre du mois, budgets, à venir, projections) est replié.
+- Un seul budget quotidien avec son horizon : jusqu'à la prochaine paie ou jusqu'à la fin du mois, au choix, avec l'explication du calcul. Les charges à payer d'ici là sont déduites.
+- Vocabulaire clarifié : « excédent du mois » (entrées moins dépenses) distinct de « mis de côté » (épargne).
+- « Vérifier mon solde » : on saisit ce que contient réellement le portefeuille, l'écart devient un ajustement daté avec un motif, jamais compté comme une dépense. Annulable depuis la liste des mouvements.
+- Dépenses fréquentes en un geste (favoris proposés d'après l'historique, modifiables dans Réglages) et bouton « Annuler » après chaque saisie.
+- Démarrage guidé en 3 étapes (soldes de départ, jour de paie et salaire, charges fixes) puis première dépense, repoussable, relançable depuis Réglages.
+- Rappel du soir facultatif à 20 h : « As-tu noté tes dépenses d'aujourd'hui ? », sans montant, annulé si une dépense est déjà notée ce jour-là (l'application et le serveur le vérifient).
+- Séparation perso et pro : portefeuilles et catégories marqués Pro, filtre Tout, Perso, Pro en haut de l'accueil. Les soldes réels ne changent jamais, seule la vue change, et le rapport annonce la vue utilisée.
+- Conseils tirés de tes propres chiffres (moyenne des 3 derniers mois par catégorie) avant les repères nationaux, qui portent maintenant leur date (INS 2011, prix 2022-2023).
+
+### Tests et qualité
+- Les tests entrent dans le dépôt (dossier tests/) : 21 lots et plus de 650 vérifications sur l'application réelle dans Chromium avec un faux Supabase, service worker, analyse des SMS piégés, fonction d'envoi des rappels sous Deno, migrations et sécurité sur PostgreSQL. Lancement : tests/run-all.sh.
+- Contrôle automatique GitHub Actions à chaque modification (.github/workflows/tests.yml).
+
+### Mise à jour d'une base 2.5
+1. Supabase > SQL Editor : exécuter `supabase/migration-2.6.sql` puis `supabase/cron-sauvegarde.sql` (relançables, aucune donnée touchée).
+2. Edge Functions : redéployer `send-reminders` avec le nouveau contenu de `supabase/functions/send-reminders/index.ts` (rappel du soir).
+3. L'application se met à jour toute seule au lancement suivant.
+
+### Sécurité
+- Table `journal` : RLS propriétaire, écriture seule pour l'utilisateur, aucun droit pour le rôle anonyme, bornes de taille, limite horaire.
+- Fonction `snapshot_backups` : réservée à la base (aucun droit public), un utilisateur en échec ne bloque pas les autres.
+- Configuration étendue (`__hz`, `__start`, `__chk`, rappel du soir) relue avec un repli sûr, import et restauration assainis comme avant. Mouvements `adjust` acceptés à l'import.
+- Faille corrigée avant publication : une date piégée dans la configuration (dernière vérification de solde) pouvait injecter du code dans l'écran Comptes. Les dates affichées passent maintenant toutes par une fonction qui ne renvoie qu'une date ou « - ». Nouveau test `test_securite_2_6.py` : données hostiles dans les favoris, récurrentes, ajustements, « À corriger », démarrage guidé, filtre perso et pro, portefeuilles et catégories.
+- Aucun changement de la politique CSP. Les nouveaux textes affichés sont tous échappés.
+
 ## 2.5.0 (octobre 2026)
 - Catégories personnalisables : renommer et recolorer les 11 catégories de base, ajouter les tiennes (jusqu'à 20) avec nature besoin ou envie et mots-clés pour la proposition automatique. Modèles prêts pour le contexte congolais (dîme et offrandes, solidarité deuil et mariage, coiffure, scolarité, groupe électrogène). Une catégorie utilisée s'archive, elle ne se supprime pas.
 - Cycle de paie : jour de paie détecté depuis les salaires notés (ou réglé à la main), compte à rebours jusqu'au prochain salaire, nombre de jours que tes liquidités permettent de tenir à ton rythme actuel, charges à venir comprises.
