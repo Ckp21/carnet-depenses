@@ -63,9 +63,9 @@ const CAT_PRESETS=[
 // Portefeuilles : 5 de base, personnalisables, plus ceux que tu ajoutes (stockés dans settings.opening.__wallets)
 const WCOLORS=['#067C3A','#F5C04A','#93340A','#1570EF','#04382A','#7C3AED','#DB2777','#0891B2','#64748B','#CD8309'];
 const BASE_WALLETS=[["especes","Espèces","#067C3A","cash"],["mtn","MTN MoMo","#F5C04A","momo"],["airtel","Airtel Money","#93340A","momo"],["banque","Banque/Carte","#1570EF","bank"],["epargne","Épargne","#04382A","savings"]];
-const WKIND={cash:'Liquide',momo:'Mobile Money',bank:'Compte ou carte',other:'Autre'};
-const WSUB={cash:'liquide',momo:'Mobile Money',bank:'compte et carte',other:'portefeuille',savings:''};
-const WALLETS=[], WAL=Object.create(null), METHODS=[], MOMO=new Set();
+const WKIND={cash:'Liquide',momo:'Mobile Money',bank:'Compte ou carte',card:'Carte prépayée',other:'Autre'};
+const WSUB={cash:'liquide',momo:'Mobile Money',bank:'compte et carte',card:'carte prépayée',other:'portefeuille',savings:''};
+const WALLETS=[], WAL=Object.create(null), METHODS=[], MOMO=new Set(), CARD=new Set();
 const SOURCES=[["salaire","Salaire","#04382A"],["prime","Prime","#3FAE75"],["mission","Mission / freelance","#F5C04A"],["autre","Autre","#9AA8A1"]];
 const SRC=dict(Object.fromEntries(SOURCES.map(s=>[s[0],{label:s[1],color:s[2]}])));
 const MOVES=dict({
@@ -125,8 +125,8 @@ const HAS_WEBAUTHN=!!(window.PublicKeyCredential&&navigator.credentials);
 const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 
 /* ---------- État ---------- */
-const APP_VERSION='2.6.0';
-const K={push:'cd2-push',remSig:'cd2-remsig',testId:'cd2-testid',bkAt:'cd2-bk-at',bkSig:'cd2-bk-sig',bkErr:'cd2-bk-err',fileBk:'cd2-file-bk',bkSnooze:'cd2-bk-snooze',firstUse:'cd2-first-use',synclog:'cd2-synclog',lastOk:'cd2-last-ok',remember:'cd2-remember',passkey:'cd2-passkey',lock:'cd2-lock',hiddenAt:'cd2-hidden-at',cache:'cd2-cache',outbox:'cd2-outbox',uid:'cd2-uid',email:'cd2-email',tab:'cd2-tab',met:'cd2-met',bilan:'cd2-bilan-vu',span:'cd2-span',rej:'cd2-rejected',errq:'cd2-errq',favOff:'cd2-fav-off',scope:'cd2-scope',onbSnooze:'cd2-onb-snooze'};
+const APP_VERSION='2.7.0';
+const K={push:'cd2-push',remSig:'cd2-remsig',testId:'cd2-testid',bkAt:'cd2-bk-at',bkSig:'cd2-bk-sig',bkErr:'cd2-bk-err',fileBk:'cd2-file-bk',bkSnooze:'cd2-bk-snooze',firstUse:'cd2-first-use',synclog:'cd2-synclog',lastOk:'cd2-last-ok',remember:'cd2-remember',passkey:'cd2-passkey',lock:'cd2-lock',hiddenAt:'cd2-hidden-at',cache:'cd2-cache',outbox:'cd2-outbox',uid:'cd2-uid',email:'cd2-email',tab:'cd2-tab',met:'cd2-met',bilan:'cd2-bilan-vu',span:'cd2-span',rej:'cd2-rejected',errq:'cd2-errq',favOff:'cd2-fav-off',scope:'cd2-scope',onbSnooze:'cd2-onb-snooze',planView:'cd2-planview'};
 const DEF_SETTINGS={savings_goal:0,opening:{},opening_date:null,emergency_months:3,inflation:4};
 const EMPTY=()=>({expenses:{},incomes:{},budgets:{},recurring:{},moves:{},plans:{},settings:Object.assign({},DEF_SETTINGS)});
 // Session Supabase : appareil (localStorage) si « Rester connecté », sinon durée de l'onglet (sessionStorage)
@@ -146,8 +146,8 @@ function rebuildWallets(){
   const custom=cfgWallets().filter(w=>w&&SAFE_ID(w.id)&&!BASE_WALLETS.some(b=>b[0]===w.id)).slice(0,20).map(w=>mk(w.id,w.label||'Portefeuille',w.color,w.kind,false));
   const all=[...base.slice(0,4),...custom,base[4]], sig=JSON.stringify(all);
   if(sig===wSig)return false;wSig=sig;
-  WALLETS.length=0;METHODS.length=0;MOMO.clear();for(const k of Object.keys(WAL))delete WAL[k];
-  for(const w of all){WAL[w.id]={label:w.label,color:w.color,kind:w.kind,archived:w.archived,pro:w.pro};if(w.kind==='momo')MOMO.add(w.id);
+  WALLETS.length=0;METHODS.length=0;MOMO.clear();CARD.clear();for(const k of Object.keys(WAL))delete WAL[k];
+  for(const w of all){WAL[w.id]={label:w.label,color:w.color,kind:w.kind,archived:w.archived,pro:w.pro};if(w.kind==='momo')MOMO.add(w.id);if(w.kind==='card')CARD.add(w.id);
     if(!w.archived){WALLETS.push([w.id,w.label,w.color,w.kind]);if(w.id!=='epargne')METHODS.push([w.id,w.label,w.color,w.kind])}}
   return true;
 }
@@ -176,7 +176,7 @@ let outbox=LS.get(K.outbox,[]);
 let rejected=LS.get(K.rej,[]);if(!Array.isArray(rejected))rejected=[];
 let sb=null, uid=LS.get(K.uid,null), email=LS.get(K.email,'');
 let flushing=false, lastSync=LS.get(K.lastOk,0), installEvt=null, pendingImport=null, schemaOld=false;
-const S={catTouched:false,month:ymOf(new Date()),tab:LS.get(K.tab,'dash'),filter:'all',q:'',sort:{k:'date',d:'desc'},kind:'expense',editing:null,confirmDel:false,armed:null,natTouched:false,span:LS.get(K.span,6),scope:LS.get(K.scope,'all'),more:false};
+const S={catTouched:false,month:ymOf(new Date()),tab:LS.get(K.tab,'dash'),filter:'all',q:'',sort:{k:'date',d:'desc'},kind:'expense',editing:null,confirmDel:false,armed:null,natTouched:false,span:LS.get(K.span,6),scope:LS.get(K.scope,'all'),more:false,planView:LS.get(K.planView,'goals')==='subs'?'subs':'goals'};
 
 const saveLocal=()=>{LS.set(K.cache,D);LS.set(K.outbox,outbox);LS.set(K.rej,rejected)};
 const curM=()=>ymOf(new Date());
@@ -393,24 +393,72 @@ const skipList=()=>{const a=(D.settings.opening||{}).__skip;return Array.isArray
 const recStart=r=>MRX.test(r.last_month||'')?r.last_month:shiftM(curM(),-1);
 const recDue=(r,m)=>`${m}-${pad(Math.min(r.day,daysIn(m)))}`;
 const recPaidId=(r,m)=>`rec-${r.id}-${m}`;
+
+/* ---------- Abonnements (2.7) : une charge récurrente enrichie ---------- */
+// Un abonnement est une charge récurrente (table recurring) complétée par settings.opening.__subs : périodicité, prix en devise, essai gratuit,
+// changement de prix annoncé. Aucune colonne n'est ajoutée côté serveur : une charge sans fiche reste mensuelle, en FCFA, exactement comme avant.
+const SUB_PERIODS={1:'Mensuel',3:'Trimestriel',6:'Semestriel',12:'Annuel'};
+const SUB_PER_ADJ={1:'mensuel',3:'trimestriel',6:'semestriel',12:'annuel'};
+const CURS=['USD','EUR'];
+const DEF_FX={EUR:656}; // parité fixe du franc CFA : 655,957 FCFA pour 1 euro
+const isoOk=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&isoOf(parseISO(s))===s;
+const numIn=(v,lo,hi,d=2)=>{if(typeof v!=='number'&&!(typeof v==='string'&&v.length<=20&&/^\d+(\.\d+)?$/.test(v)))return null;const x=Number(v);if(!isFinite(x)||x<lo||x>hi)return null;const k=Math.pow(10,d);return Math.round(x*k)/k};
+// Lecture toujours sûre : une valeur inattendue venant de la base ou d'un fichier est ignorée, jamais interprétée
+function cleanSubs(v){
+  const out={fx:{},m:Object.create(null),ig:[]};
+  if(!v||typeof v!=='object'||Array.isArray(v))return out;
+  if(v.fx&&typeof v.fx==='object')for(const c of CURS){const x=numIn(v.fx[c],1,100000);if(x)out.fx[c]=x}
+  const rf=numIn(v.rf,0.1,20,1);if(rf)out.rf=rf;
+  if(v.m&&typeof v.m==='object'&&!Array.isArray(v.m))for(const [id,s] of Object.entries(v.m).slice(0,80)){
+    if(!SAFE_ID(id)||!s||typeof s!=='object'||Array.isArray(s))continue;
+    const o={}, p=Number(s.p);
+    if([3,6,12].includes(p)&&MRX.test(String(s.a||''))){o.p=p;o.a=String(s.a)}
+    if(CURS.includes(s.c)){const x=numIn(s.x,0.01,1e6);if(x){o.c=s.c;o.x=x}}
+    if(isoOk(s.t))o.t=s.t;
+    if(s.n&&typeof s.n==='object'&&isoOk(s.n.d)){const x=numIn(s.n.x,0.01,1e9);if(x)o.n={d:s.n.d,x}}
+    if(Object.keys(o).length)out.m[id]=o;
+  }
+  if(Array.isArray(v.ig))out.ig=[...new Set(v.ig.filter(x=>typeof x==='string'&&x.length>=3).map(x=>x.slice(0,40)))].slice(-30);
+  return out;
+}
+let _subsRaw,_subsClean=null;
+const subCfg=()=>{const raw=(D.settings.opening||{}).__subs;if(!_subsClean||raw!==_subsRaw){_subsRaw=raw;_subsClean=cleanSubs(raw)}return _subsClean};
+const subM=id=>subCfg().m[id]||null;
+const fxRate=c=>subCfg().fx[c]||DEF_FX[c]||0;
+const subPer=r=>{const m=subM(r.id);return m&&m.p?m.p:1};
+const monthIdx=m=>{const [y,mo]=m.split('-').map(Number);return y*12+mo-1};
+// Une charge trimestrielle, semestrielle ou annuelle n'est due que les mois alignés sur son mois d'ancrage
+const recIsDue=(r,m)=>{const p=subPer(r);return p===1||((monthIdx(m)-monthIdx(subM(r.id).a))%p+p)%p===0};
+// Montant prévu (sans frais) pour une échéance : un changement de prix annoncé s'applique à partir de sa date
+function recAmt(r,date){
+  const m=subM(r.id);if(!m||!m.n||(date||todayISO())<m.n.d)return r.amount;
+  if(!m.c)return Math.round(m.n.x);
+  const rt=fxRate(m.c);return rt?Math.round(m.n.x*rt):r.amount;
+}
+// Prix de référence dans la devise de l'abonnement (ou en FCFA) à l'instant présent
+const subPriceNow=r=>{const m=subM(r.id);if(!m)return r.amount;if(m.n&&todayISO()>=m.n.d)return m.n.x;return m.c?m.x:r.amount};
+const subMonthly=r=>(recAmt(r)+(r.fee||0))/subPer(r);
+const parseNum=s=>{const v=String(s||'').replace(/\s/g,'').replace(',','.');return /^\d+(\.\d{0,2})?$/.test(v)?parseFloat(v):NaN};
+const fmtPx=x=>nf.format(Math.round(x*100)/100);
+const fmtRate=x=>nf.format(Math.round(x*100)/100);
 // Occurrences non réglées d'une charge jusqu'à une date : en retard (3 mois au plus) ou à venir
 function recDueList(r,until){
   const out=[], sk=new Set(skipList()), floor=shiftM(curM(),-2);
   let m=shiftM(recStart(r),1);if(m<floor)m=floor;
-  for(;;m=shiftM(m,1)){const date=recDue(r,m);if(date>until)break;if(D.expenses[recPaidId(r,m)]||sk.has(r.id+'|'+m))continue;out.push({m,date})}
+  for(;;m=shiftM(m,1)){const date=recDue(r,m);if(date>until)break;if(!recIsDue(r,m)||D.expenses[recPaidId(r,m)]||sk.has(r.id+'|'+m))continue;out.push({m,date})}
   return out;
 }
 function recPending(){
   const t=todayISO(), until=curM()+'-31', out=[];
   for(const r of Object.values(D.recurring)){if(!r.active)continue;
-    for(const o of recDueList(r,until))out.push({r,m:o.m,date:o.date,amount:r.amount+(r.fee||0),late:o.date<t?daysBetween(o.date,t):0})}
+    for(const o of recDueList(r,until))out.push({r,m:o.m,date:o.date,amount:recAmt(r,o.date)+(r.fee||0),late:o.date<t?daysBetween(o.date,t):0})}
   return out.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
 }
 // Dernier mois réglé : on avance tant que les mois suivants sont payés ou ignorés (garde la compatibilité avec la colonne last_month)
 function advancedLast(r,settledM,skipKey){
   const sk=new Set(skipList());if(skipKey)sk.add(skipKey);
   let last=recStart(r), m=shiftM(last,1);
-  while(m<=curM()&&(m===settledM||D.expenses[recPaidId(r,m)]||sk.has(r.id+'|'+m))){last=m;m=shiftM(m,1)}
+  while(m<=curM()&&(m===settledM||!recIsDue(r,m)||D.expenses[recPaidId(r,m)]||sk.has(r.id+'|'+m))){last=m;m=shiftM(m,1)}
   return last;
 }
 const recOp=(r,last)=>({t:'recurring',op:'upsert',row:Object.assign({},r,{last_month:last,updated_at:nowISO()})});
@@ -428,13 +476,260 @@ function dueBlock(){
   if(!all.length)return '';
   const row=p=>{const k=p.r.id+'|'+p.m, arm=S.armed==='skip:'+k;
     const when=p.late?pill('danger','en retard de '+p.late+' j'):p.date===t?pill('warning','aujourd\'hui'):pill('info','le '+dLong(p.date));
-    return `<div class="due"><div class="due-top"><span class="t"><span>${esc(p.r.label)}${p.m!==curM()?' ('+esc(mName(p.m))+')':''}</span><span>${esc(CAT[p.r.category]?.label||'')} · ${esc(WAL[p.r.method]?.label||'')}</span></span><b class="num">${fmt(p.amount)}</b></div>
+    return `<div class="due"><div class="due-top"><span class="t"><span>${esc(p.r.label)}${p.m!==curM()?' ('+esc(mName(p.m))+')':''}</span><span>${esc(CAT[p.r.category]?.label||'')} · ${esc(WAL[p.r.method]?.label||'')}${subTag(p.r)?' · '+esc(subTag(p.r)):''}</span></span><b class="num">${fmt(p.amount)}</b></div>
       <div class="actions">${when}<button type="button" class="btn-primary sm" data-rec-pay="${esc(p.r.id)}" data-m="${p.m}">Payer</button><button type="button" class="pill ${arm?'danger':''}" data-rec-skip="${esc(p.r.id)}" data-m="${p.m}">${arm?'Confirmer : pas ce mois-ci':'Pas ce mois-ci'}</button></div></div>`};
   return `<section class="block"><div class="block-head"><p class="over">À payer</p><small class="num">${fmt(sumBy(all,p=>p.amount))} réservés</small></div>
     ${show.length?show.map(row).join(''):'<p class="hint">Rien à payer dans les 10 prochains jours.</p>'}
     ${rest.length?`<p class="hint num">${rest.length} autre${rest.length>1?'s':''} plus tard ce mois-ci : ${fmt(sumBy(rest,p=>p.amount))} (${rest.map(p=>esc(p.r.label)).join(', ')}).</p>`:''}
     <p class="hint">Ces sommes sont réservées dans tes prévisions. Le solde de ton portefeuille ne change qu'à la confirmation du paiement, avec le montant réellement payé.</p></section>`;
 }
+
+/* ---------- Abonnements (2.7) : écran, carte prépayée, détection, rappels ---------- */
+const dShort=iso=>isoOk(iso)?parseISO(iso).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}).replace('.',''):'-';
+const subTag=r=>{const m=subM(r.id), a=[];if(subPer(r)>1)a.push(SUB_PER_ADJ[subPer(r)]);if(m&&m.c)a.push(fmtPx(subPriceNow(r))+' '+m.c);return a.join(' · ')};
+// Prochaine échéance non réglée (en retard ou à venir)
+function subNext(r){const l=recDueList(r,addDays(todayISO(),400));return l[0]||null}
+const rechargeFee=n=>Math.round(n*(subCfg().rf||0)/100);
+// Enregistre la configuration des abonnements : une seule opération sur les réglages
+function subSettingsOp(n){
+  const v={fx:Object.assign({},n.fx),m:Object.assign({},n.m),ig:(n.ig||[]).slice(-30)};if(n.rf>0)v.rf=n.rf;
+  return settingsRow({opening:Object.assign({},D.settings.opening,{__subs:v})});
+}
+const subBase=()=>{const c=subCfg();return {fx:Object.assign({},c.fx),m:Object.assign({},c.m),ig:c.ig.slice(),rf:c.rf||0}};
+// Les abonnements en devise suivent le taux : leur montant en FCFA est recalculé (la colonne amount reste toujours à jour)
+function subReprice(newFx,skipId){
+  const ops=[];
+  for(const r of Object.values(D.recurring)){if(r.id===skipId)continue;const m=subM(r.id);if(!m||!m.c)continue;
+    const rt=newFx[m.c]||DEF_FX[m.c]||0;if(!rt)continue;
+    const amount=Math.round(m.x*rt);if(amount>0&&amount<1e9&&amount!==r.amount)ops.push({t:'recurring',op:'upsert',row:Object.assign({},r,{amount,updated_at:nowISO()})})}
+  return ops;
+}
+
+/* Carte prépayée : combien faut-il y avoir pour les prélèvements à venir ? */
+function cardAlerts(days=30){
+  const t=todayISO(), end=addDays(t,days), out=[];
+  for(const [w,label,,kind] of WALLETS){
+    if(kind!=='card'||!inScope(!!WAL[w]?.pro))continue;
+    const dues=[];
+    for(const r of Object.values(D.recurring)){if(!r.active||r.method!==w)continue;
+      for(const o of recDueList(r,end))dues.push({r,date:o.date,amount:recAmt(r,o.date)+(r.fee||0)})}
+    dues.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+    const bal=balance(w), total=sumBy(dues,d=>d.amount);
+    let run=bal, k=-1;dues.forEach((d,i)=>{run-=d.amount;if(run<0&&k<0)k=i});
+    out.push({w,label,bal,dues,total,need:k>=0?Math.max(0,total-bal):0,by:k>=0?dues[k].date:null,short:k>=0?dues.slice(k):[]});
+  }
+  return out;
+}
+function rechargeCard(w){
+  if(!CARD.has(w)||(WAL[w]&&WAL[w].archived))return;
+  const a=cardAlerts(30).find(x=>x.w===w), need=a?a.need:0, last=lastMet();
+  const mo=WALLETS.find(x=>x[0]===last&&x[3]==='momo')||WALLETS.find(x=>x[3]==='momo');
+  openSheet(null,'move',{kind:'transfer',from:mo?mo[0]:last,to:w,amount:need,fee:need?rechargeFee(need):0});
+}
+function cardBlock(a){
+  const rf=subCfg().rf||0, fee=rechargeFee(a.need), t=todayISO();
+  let st;
+  if(a.need>0){
+    const now=a.by<=t, n=a.short.length;
+    st=msg(now?'danger':'warning','Recharge la carte '+(now?'dès maintenant':'avant le '+esc(dLong(a.by))),`Il faut ${fmt(a.need)} de plus pour ${n} abonnement${n>1?'s':''} : ${a.short.map(d=>esc(d.r.label)).join(', ')}.${fee?` Avec ${String(rf).replace('.',',')} % de frais, prévois environ ${fmt(a.need+fee)} depuis ton Mobile Money.`:''}`);
+  }else if(a.bal<0)st=msg('warning','Solde négatif',`La carte affiche ${fmtS(a.bal)}${a.dues.length?'':' et aucun prélèvement n\'est prévu dans les 30 jours'}. Une recharge manque peut-être dans le carnet : touche « Vérifier mon solde » dans Comptes pour recaler.`);
+  else if(a.dues.length)st=msg('success','Solde suffisant',`Les ${a.dues.length} prélèvement${a.dues.length>1?'s':''} des 30 prochains jours (${fmt(a.total)}) sont couverts.`);
+  else st='<p class="hint">Aucun prélèvement prévu sur cette carte dans les 30 prochains jours.</p>';
+  return `<section class="block"><div class="block-head"><p class="over">${esc(a.label)}</p><small class="num" style="${a.bal<0?'color:var(--danger)':''}">solde ${fmtS(a.bal)}</small></div>${st}<div class="actions"><button type="button" class="${a.need>0?'btn-primary':'btn'} sm" data-recharge="${esc(a.w)}">${ic('swap','s16')}Recharger${a.need>0?' : '+fmt(a.need):''}</button></div></section>`;
+}
+
+/* Détection dans l'historique : un même paiement qui revient à intervalle régulier, ou un service en ligne connu */
+const SUB_WORDS=['netflix','spotify','youtube','canal+','canal plus','icloud','google one','chatgpt','openai','claude','anthropic','microsoft','office 365','adobe','disney','prime video','amazon prime','apple music','apple tv','deezer','dropbox','notion','canva','zoom','linkedin','showmax','starzplay','audible','duolingo','coursera','udemy','nordvpn','expressvpn','github','figma','slack','crunchyroll','mubi','tidal','midjourney','perplexity','hostinger','namecheap','godaddy'];
+const subKey=note=>norm(note).replace(/[^a-z0-9+ ]/g,' ').replace(/\b\d+\b/g,' ').replace(/\s+/g,' ').trim().split(' ').slice(0,3).join(' ').slice(0,40);
+function subGuessNext(last,p){
+  const day=parseISO(last).getDate(), t=todayISO();let m=last.slice(0,7);
+  for(let i=0;i<40;i++){m=shiftM(m,p);const d=m+'-'+pad(Math.min(day,daysIn(m)));if(d>=t)return d}
+  return t;
+}
+function subDetect(){
+  const t=todayISO(), from=addDays(t,-420), have=Object.values(D.recurring).map(r=>subKey(r.label)).filter(k=>k.length>=3), ig=new Set(subCfg().ig), groups=new Map();
+  for(const e of expenses()){
+    if(e.recurring_id||e.synthetic||!e.note||e.date<from||e.date>t)continue;
+    const k=subKey(e.note);if(k.length<3)continue;
+    if(!groups.has(k))groups.set(k,[]);groups.get(k).push(e);
+  }
+  const out=[];
+  for(const [k,list] of groups){
+    if(ig.has(k)||have.some(h=>h===k||h.includes(k)||k.includes(h)))continue;
+    list.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+    const last=list[list.length-1], ln=norm(last.note), known=SUB_WORDS.some(w=>ln.includes(w));
+    let p=0;
+    if(list.length>=2){
+      const gaps=[];for(let i=1;i<list.length;i++)gaps.push(daysBetween(list[i-1].date,list[i].date));
+      const fit=(lo,hi)=>gaps.every(g=>g>=lo&&g<=hi);
+      p=fit(24,38)?1:fit(84,97)?3:fit(170,195)?6:fit(350,380)?12:0;
+      if(p){const am=list.map(x=>x.amount), md=median(am);if(!am.every(a=>Math.abs(a-md)<=md*0.3))p=0}
+    }
+    if(!p){if(!known)continue;p=1}
+    if(daysBetween(last.date,t)>p*31+10)continue;
+    out.push({key:k,label:String(last.note).slice(0,40),amount:last.amount,method:last.method,category:last.category,p,last:last.date,n:list.length,known,date:subGuessNext(last.date,p)});
+  }
+  return out.sort((a,b)=>(b.n-a.n)||(a.key<b.key?-1:1)).slice(0,5);
+}
+function subIgnore(key){const b=subBase();b.ig=[...b.ig.filter(x=>x!==key),key];mutate([subSettingsOp(b)]);toast('Ignoré : il ne sera plus proposé')}
+
+/* Écran Abonnements */
+function subRow(r){
+  const nx=subNext(r), t=todayISO(), days=nx?daysBetween(t,nx.date):null, m=subM(r.id);
+  const amt=(nx?recAmt(r,nx.date):recAmt(r))+(r.fee||0);
+  const when=!r.active?pill('info','en pause'):!nx?'':days<0?pill('danger','en retard de '+(-days)+' j'):days===0?pill('warning','aujourd\'hui'):days<=7?pill('warning','dans '+days+' j'):pill('info',esc(dShort(nx.date)));
+  const trial=m&&m.t&&m.t>=t?pill('warning','essai jusqu\'au '+esc(dShort(m.t))):'', chg=m&&m.n&&m.n.d>=t?pill('info','nouveau prix le '+esc(dShort(m.n.d))):'';
+  const canPay=r.active&&nx&&nx.m<=curM(), tag=subTag(r);
+  return `<div class="due"><div class="due-top"><span class="t"><span>${esc(r.label)}</span><span>${esc(CAT[r.category]?.label||r.category)} · ${esc(WAL[r.method]?.label||r.method)}${tag?' · '+esc(tag):''}</span></span><b class="num">${fmt(amt)}</b></div>
+    <div class="actions">${when}${trial}${chg}${canPay?`<button type="button" class="btn-primary sm" data-rec-pay="${esc(r.id)}" data-m="${esc(nx.m)}">Payer</button>`:''}<button type="button" class="pill" data-sub-edit="${esc(r.id)}">Modifier</button></div></div>`;
+}
+function renderSubs(){
+  const recs=Object.values(D.recurring).filter(recInScope), act=recs.filter(r=>r.active), monthly=sumBy(act,subMonthly);
+  const byW={};act.forEach(r=>{byW[r.method]=(byW[r.method]||0)+subMonthly(r)});
+  let h=scopeNote();
+  h+=`<section class="block hero"><div class="block-head"><p class="over">Abonnements et charges fixes</p>${eyeBtn()}</div><div class="big num">${fmt(monthly)}</div><p class="sub num">par mois en moyenne, soit ${fmt(monthly*12)} par an · ${act.length} actif${act.length>1?'s':''}</p>${Object.keys(byW).length>1?`<div class="sub num">${Object.entries(byW).sort((a,b)=>b[1]-a[1]).map(([w,v])=>`<span>${esc(WAL[w]?.label||w)} <b>${fmt(v)}</b></span>`).join('')}</div>`:''}</section>`;
+  const cards=cardAlerts(30);
+  if(cards.length)h+=cards.map(cardBlock).join('');
+  else h+=`<section class="block"><p class="over">Carte prépayée</p><p class="hint">Tu paies tes abonnements avec une carte prépayée ? Ajoute-la comme portefeuille : le carnet te dit combien recharger, et avant quelle date, pour que chaque renouvellement passe.</p><div class="actions"><button type="button" class="btn sm" data-act="subNewCard">${ic('plus','s16')}Ajouter ma carte prépayée</button></div></section>`;
+  const det=subDetect();
+  if(det.length)h+=`<section class="block"><div class="block-head"><p class="over">Abonnements détectés</p><small>${det.length}</small></div><p class="hint">Ces paiements reviennent dans ton historique. Ajoute-les pour être prévenu avant chaque prélèvement.</p>${det.map(d=>`<div class="due"><div class="due-top"><span class="t"><span>${esc(d.label)}</span><span>${esc(SUB_PER_ADJ[d.p])} · dernier le ${esc(dShort(d.last))}${d.n>1?' · '+d.n+' paiements':''}</span></span><b class="num">${fmt(d.amount)}</b></div><div class="actions"><button type="button" class="btn-primary sm" data-sub-add="${esc(d.key)}">Ajouter</button><button type="button" class="pill" data-sub-ignore="${esc(d.key)}">Ignorer</button></div></div>`).join('')}</section>`;
+  const sorted=[...recs].sort((a,b)=>{const na=a.active?subNext(a):null, nb=b.active?subNext(b):null, da=na?na.date:'9999', db=nb?nb.date:'9999';return da<db?-1:da>db?1:(a.label<b.label?-1:1)});
+  h+=`<section class="block"><div class="block-head"><p class="over">Mes abonnements</p><small>${recs.length||''}</small></div>${recs.length?sorted.map(subRow).join(''):'<p class="hint">Loyer, forfait, Netflix, cloud, logiciels : ajoute chaque prélèvement régulier. Le carnet réserve la somme, te prévient avant la date et calcule ton coût mensuel réel.</p>'}<div class="actions"><button type="button" class="btn-primary sm" data-sub-new="1">${ic('plus','s16')}Ajouter un abonnement</button></div></section>`;
+  const cfg=subCfg();
+  h+=`<section class="block"><details data-keep="fxopen" ${S.fxopen?'open':''}><summary class="linkbtn">${ic('sliders','s16')} Taux de change et frais de recharge</summary><div class="add">
+    <p class="hint">Pour un abonnement en dollars ou en euros, le carnet convertit en FCFA avec ces taux. Indique le taux réellement appliqué par ta carte ; après chaque paiement, tu pourras le corriger avec le montant débité.</p>
+    <div class="grid2"><label class="inp">1 USD en FCFA<input id="sx-USD" inputmode="decimal" placeholder="Ex. 600" value="${cfg.fx.USD?esc(String(cfg.fx.USD).replace('.',',')):''}"></label><label class="inp">1 EUR en FCFA<input id="sx-EUR" inputmode="decimal" value="${esc(String(fxRate('EUR')).replace('.',','))}"></label></div>
+    <label class="inp">Frais de recharge de la carte (%)<input id="sx-rf" inputmode="decimal" placeholder="0" value="${cfg.rf?esc(String(cfg.rf).replace('.',',')):''}"></label>
+    <p class="err" id="sx-err" hidden></p><div class="actions"><button type="button" class="btn-primary sm" data-act="saveFx">Enregistrer</button></div></div></details></section>`;
+  return h;
+}
+function saveFx(){
+  const err=m=>{$('sx-err').textContent=m;$('sx-err').hidden=false};
+  const b=subBase(), old=Object.assign({},b.fx);
+  for(const c of CURS){const raw=$('sx-'+c).value.trim();if(!raw){delete b.fx[c];continue}const x=parseNum(raw);if(!(x>=1&&x<=100000))return err('Taux '+c+' incorrect : indique combien de FCFA valent 1 '+c+'.');b.fx[c]=x}
+  const rr=$('sx-rf').value.trim();if(rr){const x=parseNum(rr);if(!(x>=0&&x<=20))return err('Frais de recharge : indique un pourcentage entre 0 et 20.');b.rf=x}else b.rf=0;
+  S.fxopen=true;
+  const ops=[subSettingsOp(b),...subReprice(b.fx)];
+  mutate(ops);toast(ops.length>1?'Taux enregistré : '+(ops.length-1)+' abonnement(s) en devise recalculé(s)':'Taux enregistrés');
+}
+
+/* Ajout et modification d'un abonnement */
+function openSubForm(id,preset){
+  const r=id?D.recurring[id]:null;if(id&&!r)return;
+  const m=r?subM(r.id):null, nx=r?subNext(r):null, P=preset||{}, t=todayISO();
+  const per=r?subPer(r):([3,6,12].includes(P.p)?P.p:1), cur=m&&m.c?m.c:'';
+  const px=r?(cur?subPriceNow(r):r.amount):(P.amount>0?P.amount:''), date=r?(nx?nx.date:t):(isoOk(P.date)?P.date:t);
+  const cardW=WALLETS.find(w=>w[3]==='card'&&inScope(!!WAL[w[0]]?.pro));
+  const met=r?r.method:(P.method&&WAL[P.method]&&!WAL[P.method].archived&&P.method!=='epargne'?P.method:(cardW?cardW[0]:lastMet()));
+  const cat=r?r.category:(CAT[P.category]&&!CAT[P.category].archived?P.category:(CAT.loisirs?'loisirs':'autres'));
+  S.subEdit=r?r.id:'new';S.subOrig=r?date:'';
+  const o=(v,l,sel)=>`<option value="${esc(v)}" ${sel?'selected':''}>${esc(l)}</option>`;
+  const metOpts=METHODS.map(([k,l])=>o(k,l,k===met)).join('')+(!METHODS.some(x=>x[0]===met)&&WAL[met]?o(met,WAL[met].label+' (archivé)',true):'');
+  const catOpts=CATS.map(([k,l])=>o(k,l,k===cat)).join('')+(!CATS.some(x=>x[0]===cat)&&CAT[cat]?o(cat,CAT[cat].label+' (archivée)',true):'');
+  const np=m&&m.n&&m.n.d>=t?m.n:null;
+  openDlg(`<div class="sheet-head"><h2>${r?'Modifier l\'abonnement':'Nouvel abonnement'}</h2><button type="button" class="x" data-act="dlgClose" aria-label="Fermer">${ic('x')}</button></div>
+    <label class="inp">Nom<input id="sb-label" maxlength="60" placeholder="Ex. Netflix" value="${esc(r?r.label:(P.label||''))}"></label>
+    <div class="grid2"><label class="inp">Prix<input id="sb-amt" inputmode="decimal" autocomplete="off" placeholder="0" value="${esc(px===''?'':String(px).replace('.',','))}"></label>
+      <label class="inp">Devise<select id="sb-cur">${o('','FCFA',!cur)}${o('USD','USD (dollar)',cur==='USD')}${o('EUR','EUR (euro)',cur==='EUR')}</select></label></div>
+    <div id="sb-fxrow" ${cur?'':'hidden'}><label class="inp">Taux : combien de FCFA pour 1 <span id="sb-fxc">${esc(cur||'USD')}</span><input id="sb-fx" inputmode="decimal" placeholder="Ex. 600" value="${cur&&fxRate(cur)?esc(String(fxRate(cur)).replace('.',',')):''}"></label></div>
+    <p class="hint num" id="sb-conv" aria-live="polite"></p>
+    <div class="grid2"><label class="inp">Fréquence<select id="sb-per">${Object.entries(SUB_PERIODS).map(([k,v])=>o(k,v,+k===per)).join('')}</select></label>
+      <label class="inp">Prochain prélèvement<input type="date" id="sb-date" value="${esc(date)}"></label></div>
+    <p class="hint" id="sb-dayhint" hidden>Après le 28 du mois, le carnet compte le 28.</p>
+    <label class="check"><input type="checkbox" id="sb-trial" ${m&&m.t?'checked':''}> Ce prélèvement marque la fin d'un essai gratuit</label>
+    <div class="grid2"><label class="inp">Payé avec<select id="sb-met">${metOpts}</select></label><label class="inp">Catégorie<select id="sb-cat">${catOpts}</select></label></div>
+    <label class="inp" id="sb-feerow" ${MOMO.has(met)?'':'hidden'}>Frais Mobile Money (FCFA)<input id="sb-fee" data-money inputmode="numeric" placeholder="0" value="${r&&r.fee?group(r.fee):''}"></label>
+    <details ${np?'open':''}><summary class="linkbtn">Le prix va changer ?</summary><div class="add"><p class="hint">Le fournisseur annonce un nouveau prix : le carnet l'applique à partir de cette date et te prévient trois jours avant.</p>
+      <div class="grid2"><label class="inp">À partir du<input type="date" id="sb-npd" value="${np?esc(np.d):''}"></label><label class="inp">Nouveau prix<input id="sb-npx" inputmode="decimal" placeholder="0" value="${np?esc(String(np.x).replace('.',',')):''}"></label></div></div></details>
+    <p class="err" id="sb-err" hidden></p>
+    <div class="sheet-actions">${r?`<button type="button" class="btn-danger" data-sub-del="${esc(r.id)}">Retirer</button><button type="button" class="btn" data-sub-pause="${esc(r.id)}">${r.active?'Mettre en pause':'Reprendre'}</button>`:''}<button type="button" class="btn-primary" data-act="saveSub">Enregistrer</button></div>`);
+  subFormSync();
+  setTimeout(()=>$('sb-label')&&$('sb-label').focus(),60);
+}
+function subFormSync(ev){
+  if(!$('sb-label'))return;
+  const c=$('sb-cur').value, id=ev&&ev.target&&ev.target.id;
+  $('sb-fxrow').hidden=!c;
+  if(c){$('sb-fxc').textContent=c;if(id==='sb-cur'){const rt=fxRate(c);$('sb-fx').value=rt?String(rt).replace('.',','):''}}
+  $('sb-feerow').hidden=!MOMO.has($('sb-met').value);
+  const x=parseNum($('sb-amt').value), rate=c?parseNum($('sb-fx').value):1;
+  $('sb-conv').textContent=c&&x>0&&rate>0?'Soit environ '+fmtRaw(Math.round(x*rate))+' par prélèvement.':'';
+  const d=$('sb-date').value;$('sb-dayhint').hidden=!(isoOk(d)&&+d.slice(8)>28);
+}
+function saveSub(){
+  const id=S.subEdit, isNew=id==='new', r=isNew?null:D.recurring[id];
+  const err=m=>{$('sb-err').textContent=m;$('sb-err').hidden=false};
+  if(!isNew&&!r){closeDlg();return}
+  const label=$('sb-label').value.trim().replace(/\s+/g,' ').slice(0,60);
+  if(!label)return err('Indique le nom de l\'abonnement.');
+  const cur=$('sb-cur').value, c=CURS.includes(cur)?cur:'', x=parseNum($('sb-amt').value);
+  if(!(x>0))return err('Indique le prix.');
+  let rate=0;if(c){rate=parseNum($('sb-fx').value);if(!(rate>=1&&rate<=100000))return err('Indique le taux : combien de FCFA valent 1 '+c+'.')}
+  const amount=c?Math.round(x*rate):Math.round(x);
+  if(!(amount>0&&amount<1e9))return err('Le montant est incorrect.');
+  const p=[1,3,6,12].includes(+$('sb-per').value)?+$('sb-per').value:1, date=$('sb-date').value;
+  if(!isoOk(date))return err('Indique la date du prochain prélèvement.');
+  const method=$('sb-met').value;if(!WAL[method]||method==='epargne')return err('Choisis le moyen de paiement.');
+  const category=CAT[$('sb-cat').value]?$('sb-cat').value:'autres', month=date.slice(0,7), now=nowISO();
+  const npd=$('sb-npd').value, npxRaw=$('sb-npx').value.trim();let n=null;
+  if(npd||npxRaw){const nx=parseNum(npxRaw);if(!isoOk(npd)||!(nx>0))return err('Pour un changement de prix, indique la date et le nouveau prix, ou laisse les deux vides.');n={d:npd,x:c?nx:Math.round(nx)}}
+  const dateChanged=isNew||date!==S.subOrig;
+  let last=isNew?shiftM(month,-1):r.last_month;
+  if(!isNew&&dateChanged){const nl=shiftM(month,-1);if(nl>last)last=nl}
+  const fee=MOMO.has(method)?toInt($('sb-fee').value):0;
+  const row=Object.assign({},r||{},{id:isNew?newId():r.id,label,amount,fee,category,method,day:dateChanged?Math.min(+date.slice(8),28):r.day,last_month:last,active:isNew?true:r.active,created_at:isNew?now:r.created_at,updated_at:now});
+  const b=subBase(), meta={};
+  if(p>1){meta.p=p;meta.a=month}
+  if(c){meta.c=c;meta.x=x;b.fx[c]=rate}
+  if($('sb-trial').checked)meta.t=date;
+  if(n)meta.n=n;
+  if(Object.keys(meta).length)b.m[row.id]=meta;else delete b.m[row.id];
+  const ops=[{t:'recurring',op:'upsert',row},subSettingsOp(b),...subReprice(b.fx,row.id)];
+  closeDlg();S.planView='subs';LS.set(K.planView,'subs');
+  mutate(ops);
+  toast(isNew?'Abonnement ajouté : prochain prélèvement le '+dLong(date):'Abonnement modifié');
+}
+function subDelClick(id,btn){
+  if(S.armed!=='rec:'+id){S.armed='rec:'+id;btn.textContent='Confirmer le retrait';btn.classList.add('danger');return}
+  closeDlg();delRec(id);
+}
+// Après un paiement dont le montant réel diffère du prévu : on retient le taux réel (devise) ou le nouveau prix (FCFA)
+function subLearn(r,real){
+  const m=subM(r.id), b=subBase();
+  if(m&&m.c){
+    const rate=Math.round(real/subPriceNow(r)*100)/100;if(!(rate>=1&&rate<=100000))return null;
+    b.fx[m.c]=rate;
+    return {row:Object.assign({},r,{amount:Math.round(m.x*rate),updated_at:nowISO()}),more:[subSettingsOp(b),...subReprice(b.fx,r.id)]};
+  }
+  const more=[];
+  if(m&&m.n&&todayISO()>=m.n.d){const o=Object.assign({},m);delete o.n;if(Object.keys(o).length)b.m[r.id]=o;else delete b.m[r.id];more.push(subSettingsOp(b))}
+  return {row:Object.assign({},r,{amount:real,updated_at:nowISO()}),more};
+}
+function updateKeep(){
+  const box=$('fs-keep');if(!box)return;
+  const RP=S.recPay&&D.recurring[S.recPay.rid]?S.recPay:null;
+  if(!RP||S.kind!=='expense'){box.hidden=true;return}
+  const r=D.recurring[RP.rid], real=toInt($('f-amount').value), exp=recAmt(r,recDue(r,RP.m)), m=subM(r.id);
+  if(!(real>0)||real===exp){box.hidden=true;return}
+  if(m&&m.c){const x=subPriceNow(r);$('keep-t').textContent='Retenir ce taux pour les prochains prélèvements : 1 '+m.c+' = '+fmtRate(real/x)+' FCFA (au lieu de '+fmtRate(fxRate(m.c))+')'}
+  else $('keep-t').textContent='Retenir ce montant pour les prochains prélèvements ('+fmtRaw(real)+' au lieu de '+fmtRaw(exp)+')';
+  box.hidden=false;
+}
+
+/* Alertes de l'accueil : recharge de carte, fin d'essai, changement de prix */
+function subsAlerts(){
+  const t=todayISO(), soon=addDays(t,14), items=[];
+  for(const a of cardAlerts(30))if(a.need>0&&a.by&&a.by<=soon){const n=a.short.length;
+    items.push({tone:a.by<=t?'danger':'warning',title:'Recharge la carte '+(a.by<=t?'dès maintenant':'avant le '+esc(dLong(a.by))),body:`« ${esc(a.label)} » : il faut ${fmt(a.need)} de plus pour ${n} abonnement${n>1?'s':''} (${a.short.map(d=>esc(d.r.label)).join(', ')}).`,w:a.w})}
+  for(const r of Object.values(D.recurring)){if(!r.active||!recInScope(r))continue;const m=subM(r.id);if(!m)continue;
+    if(m.t&&m.t>=t&&m.t<=addDays(t,7))items.push({tone:'warning',title:'Essai gratuit : '+esc(r.label),body:`Premier prélèvement le ${esc(dLong(m.t))} : ${fmt(recAmt(r,m.t)+(r.fee||0))}. Annule avant si tu n'en veux pas.`});
+    if(m.n&&m.n.d>=t&&m.n.d<=soon)items.push({tone:'info',title:'Changement de prix : '+esc(r.label),body:`Dès le ${esc(dLong(m.n.d))} : ${fmt(recAmt(r,m.n.d)+(r.fee||0))} au lieu de ${fmt(recAmt(r,t)+(r.fee||0))}.`})}
+  return items;
+}
+const subsAlertBlock=()=>{const l=subsAlerts();if(!l.length)return '';
+  return l.map(a=>msg(a.tone,a.title,a.body)).join('')+`<div class="actions">${l.some(a=>a.w)?`<button type="button" class="btn-primary sm" data-recharge="${esc(l.find(a=>a.w).w)}">Recharger la carte</button>`:''}<button type="button" class="btn sm" data-act="openSubs">Voir les abonnements</button></div>`};
+const planSeg=()=>`<div class="seg" style="grid-template-columns:repeat(2,1fr);margin-bottom:12px" role="group" aria-label="Vue du plan"><button type="button" data-planview="goals" aria-pressed="${S.planView==='goals'}">Objectifs et budgets</button><button type="button" data-planview="subs" aria-pressed="${S.planView==='subs'}">Abonnements</button></div>`;
+function openSubs(){S.tab='plan';S.planView='subs';LS.set(K.tab,'plan');LS.set(K.planView,'subs');render();$('main').scrollTop=0}
 
 /* ---------- Calculs financiers ---------- */
 const SMIG=70400; // SMIG mensuel depuis le 1er janvier 2025
@@ -480,7 +775,7 @@ function planStats(p){
   return {};
 }
 const projectsSaved=()=>sumBy(plans('project').filter(p=>p.active!==false),p=>planStats(p).saved);
-const fixedCharges=()=>sumBy(Object.values(D.recurring).filter(r=>r.active),r=>r.amount+(r.fee||0));
+const fixedCharges=()=>sumBy(Object.values(D.recurring).filter(r=>r.active),subMonthly);
 const commitments=m=>sumBy(plans('tontine').filter(p=>p.active!==false&&(p.data?.start||'')<=m+'-31'&&planStats(p).end.slice(0,7)>=m),p=>planStats(p).monthly);
 function dayBudget(m){
   const inc=incomeIn(m);if(!inc)return null;
@@ -516,7 +811,7 @@ function dailyRate(){
 function committed(days){
   const t=todayISO(), end=addDays(t,days);let sum=0;
   // Charges récurrentes non réglées (en retard ou à venir) : réservées jusqu'à leur paiement
-  for(const r of Object.values(D.recurring)){if(!r.active||!recInScope(r))continue;sum+=recDueList(r,end).length*(r.amount+(r.fee||0))}
+  for(const r of Object.values(D.recurring)){if(!r.active||!recInScope(r))continue;sum+=sumBy(recDueList(r,end),o=>recAmt(r,o.date)+(r.fee||0))}
   for(const u of upcoming(days)){if(u.plus||u.late||u.kind==='Récurrente'||u.kind==='Créance'||u.kind==='Projet')continue;sum+=u.amount}
   return sum;
 }
@@ -541,12 +836,22 @@ function payCard(){
   }else if(!D.settings.opening_date)h+=`<p class="hint">Saisis tes soldes de départ dans Comptes pour des montants exacts.</p>`;
   return h+'</section>';
 }
+// Période du budget du jour (accueil) : jusqu'à la prochaine paie ou jusqu'à la fin du mois
+function hzChoice(P){
+  const H=horizon(), pref=cfgHz()||(H.pay?'pay':'month');
+  if(!P)return '<p class="hint">Budget du jour : sans jour de paie, il est calculé jusqu\'à la fin du mois.</p>';
+  const opt=[['pay','Jusqu\'à la prochaine paie',H.pay?H.pay.n+' j':P.late?'salaire en retard':'-'],['month','Jusqu\'à la fin du mois',H.month.n+' j']];
+  return `<div class="form-row"><span>Budget du jour<span class="meta" style="display:block">Période sur laquelle l'accueil répartit ton argent</span></span></div>
+    <div class="hzseg set" role="group" aria-label="Période du budget du jour">${opt.map(([k,l,n])=>`<button type="button" data-hz="${k}" aria-pressed="${pref===k}">${l}<small>${n}</small></button>`).join('')}</div>
+    ${P.late?'<p class="hint">Ton salaire est en retard : en attendant, le calcul va jusqu\'à la fin du mois.</p>':''}`;
+}
 function cycleSettings(){
   const P=payInfo(), d=payDay();
   return `<section class="block"><p class="over">Salaire et cycle de paie</p><p class="hint">Indique ton jour de paie habituel. Le carnet calcule combien de jours tu tiens avec tes liquidités, et ce qu'il te reste par jour si le salaire tarde.</p>
     <div class="form-row"><span>Jour de paie habituel<span class="meta" style="display:block">de 1 à 28, vide si ton salaire est irrégulier</span></span><label class="field"><input class="r" id="cy-day" inputmode="numeric" maxlength="2" value="${d||''}" placeholder="-" aria-label="Jour de paie"><span>du mois</span></label></div>
     ${P?`<p class="hint">Prochain salaire attendu : <b>${esc(dLong(P.next))}</b>${P.late?` (en retard de ${P.late} jour${P.late>1?'s':''})`:''}. ${P.last?'Dernier salaire noté le '+esc(dLong(P.last.date))+'.':'Aucun salaire noté pour l\'instant : ajoute-le dans Comptes, source « Salaire ».'}</p>`:''}
-    <div class="actions"><button type="button" class="btn-primary" data-act="saveCycle">Enregistrer</button></div></section>`;
+    <div class="actions"><button type="button" class="btn-primary" data-act="saveCycle">Enregistrer</button></div>
+    <div style="border-top:1px solid var(--mist-100);margin-top:14px;padding-top:4px">${hzChoice(P)}</div></section>`;
 }
 function saveCycle(){
   const raw=$('cy-day').value.trim(), d=toInt(raw);
@@ -654,7 +959,7 @@ function parseSMS(text){
 function nextDate(day,fromISO){const f=parseISO(fromISO);let d=new Date(f.getFullYear(),f.getMonth(),Math.min(day,daysIn(ymOf(f))));if(isoOf(d)<fromISO){const n=new Date(f.getFullYear(),f.getMonth()+1,1);d=new Date(n.getFullYear(),n.getMonth(),Math.min(day,daysIn(ymOf(n))))}return isoOf(d)}
 function upcoming(days=10){
   const t=todayISO(), lim=isoOf(new Date(Date.now()+days*864e5)), out=[];
-  for(const r of Object.values(D.recurring)){if(!r.active)continue;for(const o of recDueList(r,lim))out.push({date:o.date,label:r.label,amount:r.amount+(r.fee||0),kind:'Récurrente',icon:'repeat',late:o.date<t})}
+  for(const r of Object.values(D.recurring)){if(!r.active)continue;for(const o of recDueList(r,lim))out.push({date:o.date,label:r.label,amount:recAmt(r,o.date)+(r.fee||0),kind:'Récurrente',icon:'repeat',late:o.date<t})}
   for(const p of plans()){if(p.active===false)continue;const s=planStats(p);
     if((p.type==='loan'||p.type==='debt')&&s.left>0&&s.due&&s.due<=lim)out.push({date:s.due,label:(p.type==='loan'?'Remboursement attendu : ':'Dette à rembourser : ')+p.name,amount:s.left,kind:p.type==='loan'?'Créance':'Dette',icon:'hand',late:s.due<t});
     if(p.type==='tontine'){const dd=p.data||{};if(s.end<t)continue;
@@ -668,7 +973,7 @@ function buildICS(){
   const esc2=x=>String(x).replace(/[\\;,]/g,m=>'\\'+m).replace(/[\r\n]+/g,' ');
   const dt=iso=>iso.replace(/-/g,''), stamp=new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z', ev=[];
   const add=(uid,date,title,desc,rule)=>ev.push(['BEGIN:VEVENT',`UID:${uid}@carnet-depenses`,`DTSTAMP:${stamp}`,`DTSTART;VALUE=DATE:${dt(date)}`,`SUMMARY:${esc2(title)}`,`DESCRIPTION:${esc2(desc)}`,rule?`RRULE:${rule}`:null,'BEGIN:VALARM','ACTION:DISPLAY',`DESCRIPTION:${esc2(title)}`,'TRIGGER:-PT15H','END:VALARM','END:VEVENT'].filter(Boolean).join('\r\n'));
-  for(const r of Object.values(D.recurring))if(r.active)add('rec-'+r.id,nextDate(r.day,todayISO()),r.label+' : '+fmtNR(r.amount+(r.fee||0))+' FCFA','Dépense récurrente du Carnet de dépenses',`FREQ=MONTHLY;BYMONTHDAY=${r.day}`);
+  for(const r of Object.values(D.recurring))if(r.active){const nx=subNext(r), per=subPer(r);add('rec-'+r.id,nx?nx.date:nextDate(r.day,todayISO()),r.label+' : '+fmtNR(recAmt(r)+(r.fee||0))+' FCFA',per>1||subM(r.id)?'Abonnement du Carnet de dépenses':'Dépense récurrente du Carnet de dépenses',`FREQ=MONTHLY;${per>1?'INTERVAL='+per+';':''}BYMONTHDAY=${Math.min(r.day,28)}`)}
   for(const p of plans()){if(p.active===false)continue;const s=planStats(p);
     if((p.type==='loan'||p.type==='debt')&&s.left>0&&s.due)add('plan-'+p.id,s.due,(p.type==='loan'?'Remboursement attendu de ':'Rembourser ')+p.name+' : '+fmtNR(s.left)+' FCFA','Échéance du Carnet de dépenses');
     if(p.type==='tontine'){const d=p.data||{};add('ton-'+p.id,d.start||todayISO(),'Cotisation '+p.name+' : '+fmtNR(p.amount)+' FCFA','Tontine',`FREQ=${d.frequency==='hebdomadaire'?'WEEKLY':'MONTHLY'};COUNT=${d.members||1}`);
@@ -722,13 +1027,18 @@ function lineChart(xs,series,opts={}){
 const keys=list=>`<div class="keys">${list.map(([n,c])=>`<span><i style="background:${c}"></i>${esc(n)}</span>`).join('')}</div>`;
 
 /* ---------- Rendu ---------- */
+// Mois en cours : la date du jour en toutes lettres ; autre mois : mois et année (toucher pour revenir à aujourd'hui)
+const capFirst=x=>x.charAt(0).toUpperCase()+x.slice(1);
+const headLabel=()=>capFirst(S.month===curM()?new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):mLong(S.month));
 const TABS=[['dash','Accueil','home'],['list','Dépenses','list'],['accounts','Comptes','wallet'],['plan','Plan','target'],['analyse','Analyse','chart']];
 function render(){
   if($('app').hidden)return;
   if(rebuildWallets())refreshWalletChips();
   if(rebuildCats())refreshCatChips();
   normalizeData();
-  $('monthLabel').textContent=mLong(S.month);
+  const mlab=$('monthLabel'), isNow=S.month===curM();
+  mlab.textContent=headLabel();mlab.classList.toggle('back',!isNow);
+  if(isNow)mlab.removeAttribute('title');else mlab.title='Revenir à aujourd\'hui';
   const sbar=$('scopeBar');
   if(hasPro()){sbar.hidden=false;sbar.innerHTML=['all','perso','pro'].map(k=>`<button type="button" data-scope="${k}" aria-pressed="${scopeOn()===k}">${SCOPE_LABEL[k]}</button>`).join('')}else sbar.hidden=true;
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-current',b.dataset.tab===S.tab?'page':'false'));
@@ -753,16 +1063,17 @@ function savedAside(m){
 }
 // Un seul budget quotidien, avec un horizon au choix : prochaine paie ou fin du mois
 function horizon(){
-  const P=payInfo(), month={kind:'month',n:daysIn(curM())-new Date().getDate()+1,label:'jusqu\'à la fin du mois',short:'Fin du mois'};
-  const pay=P&&!P.late&&P.wait>0?{kind:'pay',n:P.wait,label:'jusqu\'à ma prochaine paie',short:'Prochaine paie'}:null;
+  const P=payInfo(), cm=curM();
+  const month={kind:'month',n:daysIn(cm)-new Date().getDate()+1,label:'jusqu\'à la fin du mois',short:'Fin du mois',end:cm+'-'+pad(daysIn(cm))};
+  const pay=P&&!P.late&&P.wait>0?{kind:'pay',n:P.wait,label:'jusqu\'à ta prochaine paie',short:'Prochaine paie',end:P.next}:null;
   const pref=cfgHz()||(pay?'pay':'month');
   return {cur:pref==='pay'&&pay?pay:month,pay,month,late:!!(P&&P.late),hasDay:!!P};
 }
 // Prochaine sortie d'argent connue (charge à payer, tontine, dette, projet) sur 30 jours, les retards d'abord
-function setHz(k){if(k!=='pay'&&k!=='month')return;mutate([settingsRow({opening:Object.assign({},D.settings.opening,{__hz:k})})])}
+function setHz(k){if(k!=='pay'&&k!=='month')return;mutate([settingsRow({opening:Object.assign({},D.settings.opening,{__hz:k})})]);toast(k==='pay'?'Budget du jour calculé jusqu\'à ta prochaine paie':'Budget du jour calculé jusqu\'à la fin du mois')}
 function nextDue(){
   const t=todayISO(), end=addDays(t,30), list=[];
-  for(const r of Object.values(D.recurring)){if(!r.active||!recInScope(r))continue;for(const o of recDueList(r,end))list.push({label:r.label,date:o.date,amount:r.amount+(r.fee||0),late:o.date<t?daysBetween(o.date,t):0})}
+  for(const r of Object.values(D.recurring)){if(!r.active||!recInScope(r))continue;for(const o of recDueList(r,end))list.push({label:r.label,date:o.date,amount:recAmt(r,o.date)+(r.fee||0),late:o.date<t?daysBetween(o.date,t):0})}
   for(const u of upcoming(30))if(!u.plus&&u.kind!=='Récurrente'&&u.kind!=='Créance')list.push({label:u.label,date:u.date,amount:u.amount,late:u.date<t?daysBetween(u.date,t):0});
   list.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:b.amount-a.amount);
   return list[0]||null;
@@ -770,22 +1081,39 @@ function nextDue(){
 function heroNow(){
   const set=!!(D.settings.opening_date||incomes().length), sc=scopeOn()!=='all'?' · '+SCOPE_LABEL[scopeOn()].toLowerCase():'';
   if(!set)return `<section class="block hero" id="hero"><div class="block-head"><p class="over">Argent disponible${esc(sc)}</p>${eyeBtn()}</div><div class="big num">-</div><p class="sub">Indique ce que tu as en poche et sur tes comptes. Le carnet en déduit ce que tu peux dépenser chaque jour.</p><div class="actions"><button type="button" class="btn-primary sm" data-act="startOnb">Renseigner mes soldes</button></div></section>`;
-  const H=horizon(), sel=H.cur, cash=liquid(), plan=committed(sel.n), per=(cash-plan)/sel.n, rate=dailyRate(), nd=nextDue();
-  const hz=H.pay?`<div class="hzseg" role="group" aria-label="Horizon du calcul">${[H.pay,H.month].map(x=>`<button type="button" data-hz="${x.kind}" aria-pressed="${sel.kind===x.kind}">${x.short}<small>${x.n} j</small></button>`).join('')}</div>`:'';
+  const H=horizon(), sel=H.cur, t=todayISO(), cash=liquid(), plan=committed(sel.n), rate=dailyRate(), nd=nextDue();
+  // Dépensé aujourd'hui hors charges récurrentes (elles sont déjà dans les sorties prévues) : le budget du jour reste stable dans la journée
+  const vt=sumBy(expenses().filter(e=>e.date===t&&!e.recurring_id&&inScope(isProExp(e))),spend);
+  const raw=(cash+vt-plan)/sel.n, budget=Math.max(0,raw), left=budget-vt;
   const note=H.pay?'':H.late?'Ton salaire est en retard : le calcul va jusqu\'à la fin du mois.':H.hasDay?'':'<button type="button" class="linkbtn" data-tab="settings">Indique ton jour de paie pour calculer jusqu\'à la prochaine paie</button>';
-  const ndHtml=nd?`<div class="nd"><span class="t"><span>${esc(nd.label)}</span><span>${nd.late?'en retard de '+nd.late+' jour'+(nd.late>1?'s':''):nd.date===todayISO()?'aujourd\'hui':dLong(nd.date)}</span></span><b class="num">${fmt(nd.amount)}</b></div>`:'<p class="sub">Rien de prévu sur les 30 prochains jours.</p>';
-  let h=`<section class="block hero" id="hero"><div class="block-head"><p class="over">Argent disponible${esc(sc)}</p>${eyeBtn()}</div>
+  const ndWhen=nd?(nd.late?'en retard de '+nd.late+' jour'+(nd.late>1?'s':''):nd.date===t?'aujourd\'hui':(daysBetween(t,nd.date)===1?'demain':'dans '+daysBetween(t,nd.date)+' jours')+' · '+dShort(nd.date)):'';
+  const ndHtml=nd?`<div class="nd"><span class="t"><span>${esc(nd.label)}</span><span>${esc(ndWhen)}</span></span><b class="num">${fmt(nd.amount)}</b></div>`:'<p class="sub">Aucune sortie prévue sur les 30 prochains jours.</p>';
+  const head=`<div class="block-head"><p class="over">Argent disponible${esc(sc)}</p>${eyeBtn()}</div>
     <div class="big num" id="hero-cash">${fmtN(cash)} <small>FCFA</small></div>
-    <div class="sub"><span>Espèces, Mobile Money et banque, hors épargne</span></div>
-    <div class="hz"><p class="over">Utilisable par jour ${esc(sel.label)}</p>
-      <div class="big2 num" id="hero-day">${fmtN(Math.max(0,per))} <small>FCFA par jour</small></div>
-      ${hz}
-      <p class="sub num" id="hero-calc">(${fmt(cash)} − ${fmt(plan)} de sorties prévues) ÷ ${sel.n} jour${sel.n>1?'s':''}${rate>0?` · ton rythme actuel : ${fmt(rate)} par jour`:''}</p>
-      ${note?`<p class="sub">${note}</p>`:''}</div>
-    <div class="hz"><p class="over">Prochaine échéance</p>${ndHtml}</div></section>`;
-  if(cash<=0)h+=msg('warning','Argent disponible nul ou négatif','Selon le carnet, tes portefeuilles hors épargne sont vides. Si ce n\'est pas le cas, touche « Vérifier » dans Comptes pour caler le carnet sur ton solde réel.');
-  else if(per<=0)h+=msg('danger','Sorties prévues supérieures à ton argent',`Tes charges à payer, tontines et dettes d'ici ${sel.n} jour${sel.n>1?'s':''} (${fmt(plan)}) dépassent ton argent disponible (${fmt(cash)}).`);
-  else if(rate>0&&per<rate*.7)h+=msg('warning','Rythme trop rapide pour cette période',`Tu dépenses en moyenne ${fmt(rate)} par jour. Pour tenir ${sel.label}, limite-toi à ${fmt(per)}.`);
+    <div class="sub"><span>Espèces, Mobile Money et banque, sans l'épargne</span></div>`;
+  let h;
+  if(cash<=0){
+    h=`<section class="block hero" id="hero">${head}
+      <div class="hz"><p class="over">Budget du jour</p><p class="sub">D'après le carnet, le solde de tes portefeuilles est nul ou négatif : impossible de calculer un budget. Si ce n'est pas le cas, mets tes soldes à jour dans Comptes.</p>
+        <div class="actions"><button type="button" class="btn-primary sm" data-tab="accounts">Ouvrir Comptes</button></div></div>
+      <div class="hz"><p class="over">Prochaine sortie prévue</p>${ndHtml}</div></section>`;
+  }else{
+    const over=left<0, pct=budget>0?Math.min(vt/budget,1)*100:(vt>0?100:0);
+    const today=vt>0?`<div class="bar" aria-hidden="true"><div style="width:${pct.toFixed(0)}%;${over?'background:var(--orange)':''}"></div></div>
+      <p class="sub num" id="hero-today"><span>Aujourd'hui : <b>${fmt(vt)}</b> dépensés, ${over?'<b class="accent">'+fmt(-left)+' de plus que ton budget</b>':'il reste <b>'+fmt(left)+'</b>'}.</span></p>`
+      :`<p class="sub" id="hero-today">Rien dépensé aujourd'hui.</p>`;
+    h=`<section class="block hero" id="hero">${head}
+      <div class="hz"><p class="over">Budget du jour</p>
+        <div class="big2 num" id="hero-day">${fmtN(budget)} <small>FCFA par jour</small></div>
+        ${today}
+        <p class="sub">À ne pas dépasser pour tenir ${esc(sel.label)}, le ${esc(dShort(sel.end))} (${sel.n} jour${sel.n>1?'s':''}).</p>
+        ${note?`<p class="sub">${note}</p>`:''}
+        <details class="calc" data-keep="calcopen" ${S.calcopen?'open':''}><summary>Comment c'est calculé ?</summary>
+          <div class="calcl num" id="hero-calc"><span>Argent disponible ce matin</span><b>${fmt(cash+vt)}</b><span>Sorties déjà prévues (charges à payer, tontines, dettes)</span><b>− ${fmt(plan)}</b><span>À répartir sur ${sel.n} jour${sel.n>1?'s':''}</span><b>${fmt(budget)} par jour</b>${rate>0?`<span>Ton rythme actuel</span><b>${fmt(rate)} par jour</b>`:''}</div><p class="sub">Période : ${esc(sel.label)}. <button type="button" class="linkbtn" data-tab="settings">Changer dans Réglages</button></p></details></div>
+      <div class="hz"><p class="over">Prochaine sortie prévue</p>${ndHtml}</div></section>`;
+    if(raw<=0)h+=msg('danger','Sorties prévues supérieures à ton argent',`Tes charges à payer, tontines et dettes d'ici ${sel.n} jour${sel.n>1?'s':''} (${fmt(plan)}) dépassent ton argent disponible (${fmt(cash+vt)}).`);
+    else if(rate>0&&budget<rate*.7)h+=msg('warning','Rythme trop rapide pour cette période',`Tu dépenses en moyenne ${fmt(rate)} par jour. Pour tenir ${sel.label}, limite-toi à ${fmt(budget)}.`);
+  }
   return h;
 }
 function heroPast(m){
@@ -838,7 +1166,7 @@ function renderFavSettings(){
 
 /* ---------- Fenêtre de dialogue (vérification de solde, ajustements) ---------- */
 function openDlg(html){$('dlg').innerHTML=html;$('dlgWrap').hidden=false;document.documentElement.classList.add('modal')}
-function closeDlg(){S.chk=null;S.adjArm=null;$('dlgWrap').hidden=true;$('dlg').innerHTML='';if($('sheetWrap').hidden&&$('onb').hidden)document.documentElement.classList.remove('modal')}
+function closeDlg(){S.chk=null;S.adjArm=null;S.subEdit=null;$('dlgWrap').hidden=true;$('dlg').innerHTML='';if($('sheetWrap').hidden&&$('onb').hidden)document.documentElement.classList.remove('modal')}
 const CK_WHY=[['oubli','Dépense non notée','#04382A'],['entree','Entrée non notée','#04382A'],['frais','Frais non notés','#04382A'],['erreur','Erreur de saisie','#04382A'],['autre','Autre','#04382A']];
 function openCheck(w){
   if(!WAL[w])return;S.chk={w};
@@ -978,7 +1306,7 @@ function renderDash(){
   const m=S.month, items=monthItems(m), spent=sumBy(items,spend), inc=incomeIn(m), name=mName(m), isCur=m===curM();
   let h=scopeNote();
   h+=isCur?heroNow():heroPast(m);
-  if(isCur)h+=favBlock()+dueBlock();
+  if(isCur)h+=favBlock()+dueBlock()+subsAlertBlock();
   const cats=byCat(items);
   const al=Object.entries(D.budgets).filter(([c,b])=>b>0&&(cats[c]||0)/b>=.8).map(([c,b])=>({c,b,s:cats[c]||0}));
   const over=al.filter(a=>a.s>a.b), near=al.filter(a=>a.s<=a.b);
@@ -1201,7 +1529,8 @@ function planRow(p){
     <div class="actions">${s.left>0?`<button type="button" class="btn sm" data-newmove="${isLoan?'loan_back':'debt_pay'}" data-ref="${esc(p.id)}">${isLoan?'Enregistrer un remboursement':'Rembourser'}</button>`:''}${del}</div></div>`;
 }
 function renderPlan(){
-  let h='';
+  let h=planSeg();
+  if(S.planView==='subs')return h+renderSubs();
   const sect=(type,title,hint)=>{const list=plans(type).filter(p=>p.active!==false);return `<section class="block"><div class="block-head"><p class="over">${title}</p><small>${list.length||''}</small></div>${list.length?`<div>${list.map(planRow).join('')}</div>`:`<p class="hint">${hint}</p>`}${planForm(type)}</section>`};
   h+=sect('project','Projets d\'épargne','Parcelle, véhicule, études : fixe un montant et une échéance, l\'application calcule l\'effort mensuel.').replace('</section>',tplForm()+'</section>');
   h+=sect('tontine','Tontines','Likelemba, ristourne : suis tes cotisations et la date de ton tour.');
@@ -1245,7 +1574,7 @@ const ownAvg=c=>{const ms=ownMonths();return ms.length?sumBy(ms,x=>byCat(monthIt
 // Conseils tirés d'abord de tes propres chiffres : charges fixes, hausses par rapport à tes moyennes, objectif d'épargne
 function ownAdvice(){
   const m=S.month, inc=incomeIn(m), items=monthItems(m), L=[], hist=ownMonths();
-  const fixed=sumBy(Object.values(D.recurring).filter(r=>r.active&&recInScope(r)),r=>r.amount+(r.fee||0));
+  const fixed=sumBy(Object.values(D.recurring).filter(r=>r.active&&recInScope(r)),subMonthly);
   if(fixed>0)L.push({c:'var(--forest-600)',t:`Charges fixes · <span class="num">${fmt(fixed)}</span> par mois`,b:inc>0?`Elles représentent <strong>${pctS(fixed/inc)}</strong> de tes entrées de ${esc(mName(m))}. ${fixed/inc>.5?'Il reste peu de marge : toute baisse de revenu se ressent tout de suite.':'Le reste de tes entrées est à répartir entre dépenses courantes et épargne.'}`:'Ajoute tes entrées pour voir leur poids dans ton budget.'});
   if(hist.length&&items.length&&(m!==curM()||new Date().getDate()>=10)){
     const cats=byCat(items), frac=m===curM()?new Date().getDate()/daysIn(m):1;
@@ -1376,7 +1705,7 @@ function renderAnalyse(){
 
 function renderGuide(){
   const G=[['Argent disponible','Ce que contiennent tes portefeuilles hors épargne (espèces, Mobile Money, banque), d\'après tes soldes de départ et les opérations notées.'],
-    ['Utilisable par jour','(argent disponible − sorties déjà prévues) ÷ nombre de jours jusqu\'à l\'horizon choisi : prochaine paie ou fin du mois. Les sorties prévues sont les charges à payer, les tontines et les dettes.'],
+    ['Budget du jour','(argent disponible − sorties déjà prévues) ÷ nombre de jours jusqu\'à la prochaine paie ou la fin du mois, au choix. Les sorties prévues sont les charges à payer, les tontines et les dettes. Ce qui est dépensé aujourd\'hui se compare à ce budget sans le faire bouger.'],
     ['Excédent du mois','Entrées du mois moins dépenses du mois. Ce n\'est pas de l\'épargne tant que tu ne l\'as pas mis de côté.'],
     ['Épargne mise de côté','Les sommes virées vers ton portefeuille Épargne dans le mois, moins les retraits.'],
     ['Reste à vivre','Entrées du mois moins charges fixes, engagements et épargne visée.'],
@@ -1404,17 +1733,8 @@ function renderSettings(){
   h+=cycleSettings();
   h+=categoriesManage();
   h+=renderFavSettings();
-  const recs=Object.values(D.recurring).sort((a,b)=>a.day-b.day);
-  h+=`<section class="block"><div class="block-head"><p class="over">Dépenses récurrentes</p><small class="num">${fmt(sumBy(recs.filter(r=>r.active),r=>r.amount+(r.fee||0)))} par mois</small></div><p class="hint">Chaque mois, la charge devient « À payer » le jour indiqué. Tu confirmes le paiement avec le montant réel et le portefeuille utilisé. Tant qu'elle n'est pas payée, la somme est réservée dans tes prévisions, mais le solde du portefeuille ne bouge pas.</p>`;
-  if(recs.length)h+=`<div class="rows">${recs.map(r=>`<div class="rowbtn" style="cursor:default"><span class="dot" style="background:${CAT[r.category]?.color||'#9AA8A1'}"></span><span class="t"><span>${esc(r.label)}</span><span>le ${r.day} · ${esc(CAT[r.category]?.label||r.category)} · ${fmt(r.amount)}${r.active?(()=>{const p=recPending().find(x=>x.r.id===r.id);return p?' · à payer'+(p.late?' (retard)':''):' · réglée ce mois-ci'})():''}</span></span><span style="display:flex;gap:4px;align-items:center">
-      <button type="button" class="pill ${r.active?'success':''}" data-rec-toggle="${esc(r.id)}">${r.active?'Active':'En pause'}</button>
-      <button type="button" class="pill ${S.armed==='rec:'+r.id?'danger':''}" data-rec-del="${esc(r.id)}">${S.armed==='rec:'+r.id?'Confirmer':'Retirer'}</button></span></div>`).join('')}</div>`;
-  h+=`<details><summary class="linkbtn">${ic('plus','s16')} Ajouter une dépense récurrente</summary><div class="add">
-      <div class="grid2"><label class="inp">Libellé<input id="r-label" maxlength="60" placeholder="Ex. Loyer"></label><label class="inp">Montant (FCFA)<input id="r-amount" data-money inputmode="numeric" placeholder="0"></label></div>
-      <div class="grid2"><label class="inp">Catégorie<select id="r-cat">${CATS.map(c=>`<option value="${c[0]}">${esc(c[1])}</option>`).join('')}</select></label><label class="inp">Moyen<select id="r-met">${METHODS.map(m=>`<option value="${m[0]}">${esc(m[1])}</option>`).join('')}</select></label></div>
-      <div class="grid2"><label class="inp">Jour du mois (1 à 28)<input id="r-day" inputmode="numeric" placeholder="5"></label><label class="inp">Frais Mobile Money<input id="r-fee" data-money inputmode="numeric" placeholder="0"></label></div>
-      <label style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" id="r-now" checked> À payer dès ce mois-ci (décoche pour commencer le mois prochain)</label>
-      <p class="err" id="r-err" hidden></p><button type="button" class="btn-primary" data-act="addRec">Ajouter</button></div></details></section>`;
+  const recAll=Object.values(D.recurring), recOn=recAll.filter(r=>r.active).length;
+  h+=`<section class="block"><div class="block-head"><p class="over">Abonnements et dépenses récurrentes</p><small class="num">${fmt(fixedCharges())} par mois</small></div><p class="hint">${recAll.length?`${recOn} actif${recOn>1?'s':''} sur ${recAll.length}. `:''}Loyer, forfaits, abonnements en ligne : tout se gère dans l'onglet Plan, vue Abonnements, avec la carte prépayée, les prix en dollars ou en euros et les rappels avant chaque prélèvement.</p><div class="actions"><button type="button" class="btn sm" data-act="openSubs">Ouvrir les abonnements</button></div></section>`;
   h+=renderBackup();
   h+=renderReminders();
   h+=renderSecurity();
@@ -1573,8 +1893,10 @@ function updateMoveFields(){
       const cur=$('f-plan').value;$('f-plan').innerHTML=list.length?list.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join(''):`<option value="">Aucun : crée-le d'abord dans Plan</option>`;
       if(list.some(p=>p.id===cur))$('f-plan').value=cur}
   }else{$('fs-from').hidden=true;$('fs-to').hidden=true;$('fs-plan').hidden=true}
-  const from=k==='move'?radioVal('from'):radioVal('met');
-  $('fs-fee').hidden=!((k==='expense'||(k==='move'&&M.from))&&MOMO.has(from));
+  const from=k==='move'?radioVal('from'):radioVal('met'), to=k==='move'?radioVal('to'):null;
+  const momoFee=(k==='expense'||(k==='move'&&M.from))&&MOMO.has(from), cardFee=k==='move'&&!!M.from&&!!M.to&&CARD.has(to);
+  $('fs-fee').hidden=!(momoFee||cardFee);
+  $('fee-lg').textContent=cardFee?'Frais de transfert et de recharge (FCFA)':'Frais Mobile Money (FCFA)';
 }
 function openSheet(item,kind,preset){
   S.editing=item||null;S.confirmDel=false;S.natTouched=!!(item&&item.nature);
@@ -1592,10 +1914,12 @@ function openSheet(item,kind,preset){
   radio('met',RR?RR.method:item?.method||lastMet());
   radio('src',item?.source||'salaire');
   if(kind==='income')radio('to',item?.wallet||'banque');
-  if(kind==='move'){const M=MOVES[$('f-mkind').value];radio('from',item?.from_wallet||(M.from?lastMet():''));radio('to',item?.to_wallet||M.fixedTo||(M.to&&M.from?'epargne':M.to?'especes':''))}
+  if(kind==='move'){const M=MOVES[$('f-mkind').value];radio('from',item?.from_wallet||(M.from?lastMet():''));radio('to',item?.to_wallet||M.fixedTo||(M.to&&M.from?'epargne':M.to?'especes':''));
+    if(!item&&preset){if(preset.from&&WAL[preset.from])radio('from',preset.from);if(preset.to&&WAL[preset.to])radio('to',preset.to)}}
   updateMoveFields();
   if(item?.ref_id||preset?.ref)$('f-plan').value=item?.ref_id||preset.ref;
   $('f-fee').value=item?.fee?group(item.fee):RR&&RR.fee?group(RR.fee):'';
+  if(!item&&preset&&preset.fee>0)$('f-fee').value=group(preset.fee);
   let d=todayISO();if(!item&&!RR&&d.slice(0,7)!==S.month)d=S.month+'-01';
   $('f-date').value=item?item.date:d;
   $('f-note').value=item?.note||(RR?RR.label:'');
@@ -1605,11 +1929,11 @@ function openSheet(item,kind,preset){
   if(preset&&preset.note)$('f-note').value=String(preset.note).slice(0,120);
   $('coach').hidden=!(preset&&preset.coach);
   $('f-del').hidden=!item;$('f-del').textContent='Supprimer';
-  $('f-err').hidden=true;
+  $('f-err').hidden=true;$('f-keep').checked=true;updateKeep();
   $('sheetWrap').hidden=false;document.documentElement.classList.add('modal');
   setTimeout(()=>$('f-amount').focus(),60);
 }
-function closeSheet(){$('coach').hidden=true;$('sheetWrap').hidden=true;document.documentElement.classList.remove('modal');S.editing=null;S.recPay=null;$('f-save').textContent='Enregistrer'}
+function closeSheet(){$('fs-keep').hidden=true;$('coach').hidden=true;$('sheetWrap').hidden=true;document.documentElement.classList.remove('modal');S.editing=null;S.recPay=null;$('f-save').textContent='Enregistrer'}
 function formErr(m){$('f-err').textContent=m;$('f-err').hidden=false}
 function saveSheet(ev){
   ev.preventDefault();
@@ -1626,7 +1950,7 @@ function saveSheet(ev){
     if(M.to&&!to)return formErr('Choisis le portefeuille d\'arrivée.');
     if(kind==='transfer'&&from===to)return formErr('Choisis deux portefeuilles différents.');
     if(M.plan&&!ref)return formErr('Crée d\'abord ce '+PLAN_LABEL[M.plan].toLowerCase()+' dans l\'onglet Plan.');
-    const fee=M.from&&MOMO.has(from)?toInt($('f-fee').value):0;
+    const fee=M.from&&(MOMO.has(from)||(M.to&&CARD.has(to)))?toInt($('f-fee').value):0;
     op={t:'moves',op:'upsert',row:Object.assign(base,{kind,fee,from_wallet:from,to_wallet:to,ref_id:ref})};
   }else{
     const category=radioVal('cat'), method=radioVal('met');
@@ -1636,7 +1960,8 @@ function saveSheet(ev){
     const RP=S.recPay&&D.recurring[S.recPay.rid]?S.recPay:null;
     if(RP)base.id=recPaidId(D.recurring[RP.rid],RP.m);
     op={t:'expenses',op:'upsert',row:Object.assign(base,{category,method,fee:MOMO.has(method)?toInt($('f-fee').value):0,nature:nat&&nat!==def?nat:null,recurring_id:RP?RP.rid:(S.editing?.recurring_id||null)})};
-    if(RP){const r=D.recurring[RP.rid], last=advancedLast(r,RP.m);extraOps=last!==r.last_month?[recOp(r,last)]:[]}
+    if(RP){const r=D.recurring[RP.rid], last=advancedLast(r,RP.m), L=!$('fs-keep').hidden&&$('f-keep').checked?subLearn(r,amount):null;
+      extraOps=(L||last!==r.last_month)?[recOp(L?L.row:r,last),...(L?L.more:[])]:[]}
     LS.set(K.met,method);
   }
   const wasEdit=!!S.editing, kind=S.kind, wasPay=!!S.recPay;closeSheet();
@@ -1692,9 +2017,9 @@ function walletsManage(){
   const rows=Object.entries(WAL).map(([k,w])=>`<div class="rowbtn" style="cursor:default"><span class="wicon" style="color:${esc(w.color)}">${ic(k==='epargne'?'shield':'wallet')}</span><span class="t"><span>${esc(w.label)}${w.archived?' (archivé)':''}</span><span>${k==='epargne'?'épargne':esc((WKIND[w.kind]||'').toLowerCase())}</span></span><button type="button" class="pill" data-wedit="${esc(k)}">Modifier</button></div>`).join('');
   let form='';
   if(isNew||cur){
-    const color=cur?cur.color:WCOLORS[5], kind=cur?cur.kind:'cash';
+    const color=cur?cur.color:WCOLORS[5], kind=cur?cur.kind:(isNew&&S.wpreset==='card'?'card':'cash');
     form=`<div class="add"><p class="over">${isNew?'Nouveau portefeuille':'Modifier le portefeuille'}</p>
-      <label class="inp">Nom<input id="wf-name" maxlength="30" value="${esc(cur?cur.label:'')}" placeholder="Ex. Compte Ecobank"></label>
+      <label class="inp">Nom<input id="wf-name" maxlength="30" value="${esc(cur?cur.label:(isNew&&S.wpreset==='card'?'Carte prépayée':''))}" placeholder="Ex. Compte Ecobank"></label>
       <fieldset><legend>Couleur</legend><div class="chips">${WCOLORS.map(c=>`<label class="chip" title="${esc(c)}"><input type="radio" name="wf-color" value="${esc(c)}" ${c===color?'checked':''}><span aria-label="Couleur ${esc(c)}" style="padding:10px"><i class="dot" style="background:${esc(c)};width:22px;height:22px;margin:0"></i></span></label>`).join('')}</div></fieldset>
       ${isBase?'':`<label class="inp">Type<select id="wf-kind">${Object.entries(WKIND).map(([k,v])=>`<option value="${k}" ${k===kind?'selected':''}>${esc(v)}</option>`).join('')}</select></label>`}
       ${id==='epargne'?'':`<label class="check"><input type="checkbox" id="wf-pro" ${cur&&cur.pro?'checked':''}> Compte professionnel (suivi à part dans la vue Pro)</label>`}
@@ -1718,7 +2043,7 @@ function saveWallet(){
   const i=cfg.findIndex(w=>w.id===wid);if(i>=0)cfg[i]=entry;else cfg.push(entry);
   const opening=Object.assign({},D.settings.opening,{__wallets:cfg});
   if(isNew){const v=toInt($('wf-open')?.value);if(v)opening[wid]=v}
-  S.wedit=null;S.wopen=true;mutate([settingsRow({opening})]);toast(isNew?'Portefeuille ajouté':'Portefeuille modifié');
+  S.wedit=null;S.wpreset=null;S.wopen=true;mutate([settingsRow({opening})]);toast(isNew?'Portefeuille ajouté':'Portefeuille modifié');
 }
 function archiveWallet(){
   const id=S.wedit, w=WAL[id];if(!w||id==='new'||id==='especes'||id==='epargne')return;
@@ -1859,23 +2184,18 @@ function delPlan(id){
   S.armed=null;const p=D.plans[id];if(!p)return;
   mutate([{t:'plans',op:'upsert',row:Object.assign({},p,{active:false,updated_at:nowISO()})}]);toast('Retiré. Les mouvements déjà saisis sont conservés.');
 }
-function addRec(){
-  const label=$('r-label').value.trim(), amount=toInt($('r-amount').value), day=toInt($('r-day').value), fee=toInt($('r-fee').value);
-  const err=m=>{$('r-err').textContent=m;$('r-err').hidden=false};
-  if(!label)return err('Indique un libellé.');
-  if(!(amount>0))return err('Indique un montant.');
-  if(!(day>=1&&day<=28))return err('Choisis un jour entre 1 et 28.');
-  const cur=curM(), method=$('r-met').value, now=nowISO(), thisMonth=$('r-now').checked;
-  mutate([{t:'recurring',op:'upsert',row:{id:newId(),label:label.slice(0,60),amount,fee:MOMO.has(method)?fee:0,category:$('r-cat').value,method,day,last_month:thisMonth?shiftM(cur,-1):cur,active:true,created_at:now,updated_at:now}}]);
-  toast('Charge récurrente ajoutée'+(thisMonth?' : elle est à payer ce mois-ci':''));
-}
 function toggleRec(id){
   const r=D.recurring[id];if(!r)return;
   // À la reprise, les mois passés pendant la pause ne reviennent pas en retard : on repart du mois en cours
   const last=!r.active&&recStart(r)<shiftM(curM(),-1)?shiftM(curM(),-1):r.last_month;
   mutate([{t:'recurring',op:'upsert',row:Object.assign({},r,{active:!r.active,last_month:last,updated_at:nowISO()})}]);
 }
-function delRec(id){if(S.armed!=='rec:'+id){S.armed='rec:'+id;render();return}S.armed=null;mutate([{t:'recurring',op:'delete',id}]);toast('Récurrente retirée. Les dépenses déjà ajoutées sont conservées.')}
+function delRec(id){
+  if(S.armed!=='rec:'+id){S.armed='rec:'+id;render();return}
+  S.armed=null;const ops=[{t:'recurring',op:'delete',id}];
+  if(subM(id)){const b=subBase();delete b.m[id];ops.push(subSettingsOp(b))}
+  mutate(ops);toast('Retiré. Les dépenses déjà ajoutées sont conservées.');
+}
 
 function download(name,text,type){const blob=new Blob([text],{type});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
 function exportCSV(scope){
@@ -1914,6 +2234,7 @@ const cleanCats=a=>Array.isArray(a)?a.slice(0,50).filter(c=>c&&typeof c==='objec
 const cleanOpening=(o,ok=id=>!!WAL[id])=>{const out={};if(!o||typeof o!=='object')return out;for(const [k,v] of Object.entries(o)){if(k==='__biens'){if(Array.isArray(v))out.__biens=v.slice(0,100).filter(a=>a&&typeof a==='object').map(a=>({id:SAFE_ID(a.id)?String(a.id):newId(),name:String(a.name||'Bien').slice(0,40),value:Math.max(0,Math.round(Number(a.value)||0))}));continue}
   if(k==='__wallets'){out.__wallets=cleanWallets(v);continue}
   if(k==='__cats'){out.__cats=cleanCats(v);continue}
+  if(k==='__subs'){const c=cleanSubs(v), o={fx:c.fx,m:Object.assign({},c.m),ig:c.ig};if(c.rf)o.rf=c.rf;out.__subs=o;continue}
   if(k==='__rem'){if(v&&typeof v==='object')out.__rem={lead:[0,1,2].includes(v.lead)?v.lead:1,hour:[7,8,12,18].includes(v.hour)?v.hour:8,amounts:!!v.amounts,evening:!!v.evening};continue}
   if(k==='__hz'){if(v==='pay'||v==='month')out.__hz=v;continue}
   if(k==='__start'){if(v&&typeof v==='object')out.__start={done:!!v.done};continue}
@@ -1970,6 +2291,7 @@ async function doImport(){
     ...Object.entries(p.budgets).map(([category,amount])=>({t:'budgets',op:'upsert',row:{category,amount,updated_at:now}})),...p.recurring.map(row=>({t:'recurring',op:'upsert',row}))];
   if(p.settings){const cur=D.settings.opening||{}, inc=p.settings.opening||{}, merged=Object.assign({},cur,inc);
     for(const k of ['__wallets','__cats','__biens'])if(Array.isArray(cur[k])||Array.isArray(inc[k]))merged[k]=mergeById(cur[k],inc[k]);
+    if(cur.__subs||inc.__subs){const a=cleanSubs(cur.__subs), b=cleanSubs(inc.__subs);merged.__subs={fx:Object.assign({},a.fx,b.fx),rf:b.rf||a.rf,m:Object.assign({},a.m,b.m),ig:[...new Set([...a.ig,...b.ig])]}}
     // Le résultat de la fusion est nettoyé une dernière fois : rien d'inattendu n'est réécrit en base
     const wset=new Set(cleanWallets(merged.__wallets).map(w=>w.id)), op=cleanOpening(merged,id=>!!WAL[id]||wset.has(id));
     ops.push(settingsRow(Object.assign({},p.settings,{opening:op})))}
@@ -2011,15 +2333,21 @@ function pushBlock(){
 const fireAt=(date,lead,hour)=>{const [y,m,d]=date.split('-').map(Number);return new Date(Date.UTC(y,m-1,d-lead,hour-1,0,0)).toISOString()};
 function buildReminders(){
   const cfg=cfgRem(), now=Date.now(), t=todayISO(), end=addDays(t,45), out=new Map();
-  const rel=cfg.lead===0?'aujourd\'hui':cfg.lead===1?'demain':'dans 2 jours';
+  const relOf=l=>l===0?'aujourd\'hui':l===1?'demain':'dans '+l+' jours';
   const add=(id,date,title,body,amount,lead=cfg.lead,hour=cfg.hour)=>{
     if(!date||date<t||date>end)return;
     const when=fireAt(date,lead,hour);if(Date.parse(when)<=now+60000)return;
     const key=('r-'+id+'-'+date).slice(0,120);
-    out.set(key,{id:key,fire_at:when,title:String(title).slice(0,80),body:(body.replace('{quand}',lead===cfg.lead?rel:'aujourd\'hui')+(cfg.amounts&&amount>0?' : '+fmtRaw(amount):'')).slice(0,200),tag:id.split('-')[0].slice(0,20)});
+    out.set(key,{id:key,fire_at:when,title:String(title).slice(0,80),body:(body.replace('{quand}',relOf(lead))+(cfg.amounts&&amount>0?' : '+fmtRaw(amount):'')).slice(0,200),tag:id.split('-')[0].slice(0,20)});
   };
   for(const r of Object.values(D.recurring)){if(!r.active)continue;
-    for(const o of recDueList(r,end))add('rec-'+r.id,o.date,r.label,'À payer {quand}',r.amount+(r.fee||0))}
+    for(const o of recDueList(r,end))add('rec-'+r.id,o.date,r.label,subPer(r)>1?'Renouvellement {quand}':'À payer {quand}',recAmt(r,o.date)+(r.fee||0))}
+  // Abonnements : fin d'essai gratuit, changement de prix, renouvellement annuel (une semaine avant), recharge de la carte prépayée
+  for(const r of Object.values(D.recurring)){if(!r.active)continue;const m=subM(r.id);if(!m)continue;
+    if(m&&m.t&&m.t>=t)add('essai-'+r.id,m.t,'Essai gratuit : '+r.label,'Premier prélèvement {quand}. Annule avant si tu n\'en veux pas.',recAmt(r,m.t)+(r.fee||0),Math.max(1,cfg.lead));
+    if(m&&m.n&&m.n.d>=t)add('prix-'+r.id,m.n.d,'Changement de prix : '+r.label,'Le nouveau prix s\'applique {quand}.',recAmt(r,m.n.d)+(r.fee||0),3);
+    if(subPer(r)>=12)for(const o of recDueList(r,end))add('renouv-'+r.id,o.date,r.label,'Renouvellement annuel {quand}',recAmt(r,o.date)+(r.fee||0),7)}
+  for(const a of cardAlerts(45))if(a.need>0&&a.by)add('carte-'+a.w,a.by,'Recharge ta carte','Recharge « '+a.label+' » avant le '+dFr(a.by)+' pour '+a.short.length+' abonnement'+(a.short.length>1?'s':'')+'.',a.need,2);
   for(const p of plans()){if(p.active===false)continue;const s=planStats(p), d=p.data||{};
     if((p.type==='loan'||p.type==='debt')&&s.left>0&&s.due)add('plan-'+p.id,s.due,p.type==='debt'?'Dette à rembourser : '+p.name:p.name+' doit te rembourser','Échéance {quand}',s.left);
     if(p.type==='tontine'&&s.end>=t){
@@ -2259,7 +2587,7 @@ const reportBlock=()=>`<section class="block"><div class="block-head"><p class="
 document.addEventListener('click',ev=>{
   const t=ev.target.closest('button,[data-edit],[data-income],[data-move],[data-act]');if(!t)return;
   const ds=t.dataset;
-  if(S.armed&&!(ds.act==='applyProp'||ds.act==='applyOwn'||ds.act==='logout'||ds.act==='archiveWallet'||ds.act==='archiveCat'||ds.recDel||ds.planDel||ds.assetDel||ds.recSkip||ds.rejDrop!==undefined))S.armed=null;
+  if(S.armed&&!(ds.act==='applyProp'||ds.act==='applyOwn'||ds.act==='logout'||ds.act==='archiveWallet'||ds.act==='archiveCat'||ds.recDel||ds.subDel||ds.planDel||ds.assetDel||ds.recSkip||ds.rejDrop!==undefined))S.armed=null;
   if(ds.rejRetry!==undefined){rejRetry(+ds.rejRetry);return}
   if(ds.rejEdit!==undefined){rejEdit(+ds.rejEdit);return}
   if(ds.rejDrop!==undefined){rejDrop(+ds.rejDrop);return}
@@ -2288,15 +2616,23 @@ document.addEventListener('click',ev=>{
   if(ds.cedit){S.cedit=ds.cedit;S.copen=true;render();return}
   if(ds.tpl){S.tpl=S.tpl===ds.tpl?null:ds.tpl;S.topen=true;render();setTimeout(updateTplPreview,0);return}
   if(ds.cpreset!==undefined){addPreset(+ds.cpreset);return}
+  if(ds.planview){S.planView=ds.planview==='subs'?'subs':'goals';LS.set(K.planView,S.planView);render();return}
+  if(ds.subEdit){openSubForm(ds.subEdit);return}
+  if(ds.subNew){openSubForm(null);return}
+  if(ds.subAdd){const d=subDetect().find(x=>x.key===ds.subAdd);if(d)openSubForm(null,d);return}
+  if(ds.subIgnore){subIgnore(ds.subIgnore);return}
+  if(ds.subDel){subDelClick(ds.subDel,t);return}
+  if(ds.subPause){closeDlg();toggleRec(ds.subPause);return}
+  if(ds.recharge){rechargeCard(ds.recharge);return}
   if(ds.recPay){openRecPay(ds.recPay,ds.m);return}
   if(ds.recSkip){recSkip(ds.recSkip,ds.m);return}
   if(ds.recToggle){toggleRec(ds.recToggle);return}
   if(ds.recDel){delRec(ds.recDel);return}
   const acts={close:closeSheet,new:()=>openSheet(null,'expense'),newIncome:()=>openSheet(null,'income'),newMove:()=>openSheet(null,'move',{kind:'transfer'}),
-    saveBud:saveBudgets,applyProp:applyProposal,saveGoal,saveOpening,addRec,exportJson,pickImport:()=>$('importFile').click(),doImport,cancelImport:()=>{pendingImport=null;render()},
+    saveBud:saveBudgets,applyProp:applyProposal,saveGoal,saveOpening,saveSub,saveFx,openSubs,subNewCard:()=>{S.tab='accounts';S.wedit='new';S.wopen=true;S.wpreset='card';LS.set(K.tab,'accounts');render();$('main').scrollTop=0},exportJson,pickImport:()=>$('importFile').click(),doImport,cancelImport:()=>{pendingImport=null;render()},
     hideBilan:()=>{LS.set(K.bilan,shiftM(curM(),-1));render()},
     install:async()=>{if(!installEvt)return;installEvt.prompt();try{await installEvt.userChoice}catch(e){}installEvt=null;render()},
-    registerPasskey,smsParse,addAsset,restToSavings,saveWallet,archiveWallet,saveCycle,createTpl,enablePush,disablePush:()=>disablePush(false),pushTest,pushTestCheck,saveRem,backupNow,openReport:()=>openReport(S.month),openPrevReport:()=>openReport(shiftM(curM(),-1)),sharePrev:()=>shareSummary(shiftM(curM(),-1)),closeReport,printReport:()=>window.print(),shareReport:()=>shareSummary(S.report),shareSummary:()=>shareSummary(S.month),nudgeLater:()=>{LS.set(K.bkSnooze,Date.now()+14*864e5);render()},saveCat,archiveCat,newCat:()=>{S.cedit='new';S.copen=true;render()},cancelCat:()=>{S.cedit=null;S.copen=true;render()},newWallet:()=>{S.wedit='new';S.wopen=true;render()},cancelWallet:()=>{S.wedit=null;S.wopen=true;render()},ics:exportICS,
+    registerPasskey,smsParse,addAsset,restToSavings,saveWallet,archiveWallet,saveCycle,createTpl,enablePush,disablePush:()=>disablePush(false),pushTest,pushTestCheck,saveRem,backupNow,openReport:()=>openReport(S.month),openPrevReport:()=>openReport(shiftM(curM(),-1)),sharePrev:()=>shareSummary(shiftM(curM(),-1)),closeReport,printReport:()=>window.print(),shareReport:()=>shareSummary(S.report),shareSummary:()=>shareSummary(S.month),nudgeLater:()=>{LS.set(K.bkSnooze,Date.now()+14*864e5);render()},saveCat,archiveCat,newCat:()=>{S.cedit='new';S.copen=true;render()},cancelCat:()=>{S.cedit=null;S.copen=true;render()},newWallet:()=>{S.wedit='new';S.wpreset=null;S.wopen=true;render()},cancelWallet:()=>{S.wedit=null;S.wpreset=null;S.wopen=true;render()},ics:exportICS,
     smsToggle:()=>{$('smsArea').hidden=!$('smsArea').hidden;if(!$('smsArea').hidden)$('smsText').focus()},
     toggleDiscreet:()=>{LS.set('cd2-discreet',!discreet());applyDiscreet();render()},
     sendFeedback:()=>sendFeedback('send'),shareFeedback:()=>sendFeedback('share'),changePwd,
@@ -2317,6 +2653,8 @@ document.addEventListener('input',ev=>{
   const i=ev.target;
   if(i.id&&i.id.startsWith('tp-'))updateTplPreview();
   if(i.id==='ck-real')ckUpdate();
+  if(i.id==='sb-amt'||i.id==='sb-fx')subFormSync(ev);
+  if(i.id==='f-amount')updateKeep();
   if(i.id==='f-note'){clearTimeout(suggestCat._t);suggestCat._t=setTimeout(suggestCat,250)}
   if(i.id==='q'){S.q=i.value;const pos=i.selectionStart;render();const n=$('q');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}return}
   if(['f-amount','f-fee','ck-real'].includes(i.id)||i.dataset.bud!==undefined||i.dataset.money!==undefined){const d=digits(i.value).slice(0,12);i.value=d?group(d.replace(/^0+(?=\d)/,'')):''}
@@ -2325,10 +2663,11 @@ document.addEventListener('change',ev=>{
   if(ev.target.id==='remember'){LS.set(K.remember,ev.target.checked);sb?.auth.getSession().then(({data})=>{if(data.session){authStore.setItem('cd2-auth',JSON.stringify(data.session))}});toast(ev.target.checked?'Tu resteras connecté sur cet appareil':'Reconnexion demandée à chaque ouverture');return}
   if(ev.target.id==='discreetOpt'){LS.set('cd2-discreet',ev.target.checked);applyDiscreet();return}
   if(ev.target.id==='lockOpt'){LS.set(K.lock,ev.target.checked);toast(ev.target.checked?'Verrouillage activé':'Verrouillage désactivé');return}
+  if(['sb-cur','sb-met','sb-date'].includes(ev.target.id)){subFormSync(ev);return}
   const n=ev.target.name;
   if(n==='cat'){S.catTouched=true;$('catHint').hidden=true;if(!S.natTouched)radio('nat',NEED.has(ev.target.value)?'besoin':'envie')}
   if(n==='nat')S.natTouched=true;
-  if(n==='met'||n==='from'||ev.target.id==='f-mkind'){if(ev.target.id==='f-mkind'){const M=MOVES[ev.target.value];if(M.fixedTo)radio('to',M.fixedTo)}updateMoveFields()}
+  if(n==='met'||n==='from'||n==='to'||ev.target.id==='f-mkind'){if(ev.target.id==='f-mkind'){const M=MOVES[ev.target.value];if(M.fixedTo)radio('to',M.fixedTo)}updateMoveFields()}
 });
 document.addEventListener('paste',ev=>{
   if($('sheetWrap').hidden||ev.target.id==='smsText')return;
@@ -2340,6 +2679,7 @@ $('importFile').addEventListener('change',async ev=>{
   try{pendingImport=parseBackup(await f.text());S.tab='settings';render();$('main').scrollTop=$('main').scrollHeight}catch(e){toast(e.message||'Fichier illisible')}
 });
 $('fab').onclick=()=>openSheet(null,'expense');
+$('monthLabel').onclick=()=>{if(S.month!==curM()){S.month=curM();S.filter='all';render()}};
 $('prevM').onclick=()=>{S.month=shiftM(S.month,-1);S.filter='all';render()};
 $('nextM').onclick=()=>{S.month=shiftM(S.month,1);S.filter='all';render()};
 $('f').addEventListener('submit',saveSheet);

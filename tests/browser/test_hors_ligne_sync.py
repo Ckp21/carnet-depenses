@@ -54,7 +54,7 @@ async def main():
     check('appui sur l\'indicateur : relance immédiate',await page.evaluate("outbox.length")==0)
     # réglages : détail et journal
     await page.click('[data-tab=settings]'); await page.wait_for_timeout(300)
-    txt=await page.inner_text('main'); check('réglages : version et dernière synchro','2.6.0' in txt and 'Dernière synchronisation' in txt)
+    txt=await page.inner_text('main'); check('réglages : version et dernière synchro',APP_VERSION in txt and 'Dernière synchronisation' in txt)
     check('réglages : journal visible',await page.locator('summary:has-text("Journal des synchronisations")').count()==1)
     # idempotence : un envoi rejoué ne crée pas de doublon
     n=await page.evaluate("window.__srv.expenses.length"); await page.evaluate("outbox.push({t:'expenses',op:'upsert',row:Object.assign({},D.expenses[Object.keys(D.expenses)[0]])});flush()"); await page.wait_for_timeout(500)
@@ -68,7 +68,7 @@ async def main():
     ctx,page=await boot(b,seed)
     ok=await wait_for(page,"window.__srv.backups.length>=1",5000); check('première copie automatique',ok)
     bk=await page.evaluate("window.__srv.backups[0]")
-    check('copie complète et typée',bk['kind']=='auto' and bk['counts']['expenses']==298 and bk['payload']['app']=='carnet-depenses' and len(bk['payload']['expenses'])==298 and bk['payload']['version']=='2.6.0',{k:v for k,v in bk.items() if k!='payload'})
+    check('copie complète et typée',bk['kind']=='auto' and bk['counts']['expenses']==298 and bk['payload']['app']=='carnet-depenses' and len(bk['payload']['expenses'])==298 and bk['payload']['version']==APP_VERSION,{k:v for k,v in bk.items() if k!='payload'})
     await page.evaluate("sync(true)"); await page.wait_for_timeout(800)
     check('pas de doublon sans changement',await page.evaluate("window.__srv.backups.length")==1)
     # changement + délai écoulé -> nouvelle copie
@@ -106,7 +106,7 @@ async def main():
     async with page.expect_download() as dl:
         await page.click('[data-act=exportJson]')
     d=await dl.value; path=await d.path(); data=json.load(open(path))
-    check('fichier JSON : nom, version, contenu',d.suggested_filename.startswith('carnet-depenses-sauvegarde-') and data['version']=='2.6.0' and len(data['expenses'])>=298,d.suggested_filename)
+    check('fichier JSON : nom, version, contenu',d.suggested_filename.startswith('carnet-depenses-sauvegarde-') and data['version']==APP_VERSION and len(data['expenses'])>=298,d.suggested_filename)
     check('date du dernier fichier mémorisée',await page.evaluate("LS.get(K.fileBk,0)>0"))
     await ctx.close()
 

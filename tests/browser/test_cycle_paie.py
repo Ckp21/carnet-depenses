@@ -13,7 +13,7 @@ async def main():
     A=copy.deepcopy(base); A['settings'][0]['opening']['__cycle']={'day':1}; A['settings'][0]['opening']['banque']=2500000
     ctx,page=await boot(b,json.dumps(A))
     hero=(await page.inner_text('#hero')).lower()
-    check('A accueil léger : horizon jusqu\'à la paie, 19 jours',"jusqu'à ma prochaine paie" in hero and '19 j' in hero and 'cycle de paie' not in (await page.inner_text('main')).lower(),hero[:300])
+    check('A accueil léger : horizon jusqu\'à la paie, 19 jours',"jusqu'à ta prochaine paie" in hero and '19 j' in hero and 'cycle de paie' not in (await page.inner_text('main')).lower(),hero[:300])
     await page.click('#moreBtn'); await page.wait_for_timeout(200)
     txt=await page.inner_text('main')
     check('A carte cycle visible (dans les détails)','cycle de paie' in txt.lower() and 'Salaire dans 19 jours' in txt,txt[:300])

@@ -29,7 +29,7 @@ pip install playwright && python -m playwright install chromium
 # SQL : un PostgreSQL local (DATABASE_URL=postgresql://... tests/serveur/test-sql.sh) ou tests/serveur/pg-local.sh
 ```
 
-## Protection de la branche main (à régler une fois sur GitHub)
+## Protection de la branche main (réglée sur le dépôt)
 
 Dépôt > Settings > Branches > Add branch protection rule, branche `main` :
 - Require a pull request before merging

@@ -35,6 +35,8 @@ Clé (`user_id`, `category`), `amount`.
 
 `id`, `label`, `amount`, `fee`, `category`, `method`, `day` (1 à 28), `last_month` (dernier mois réglé, `AAAA-MM`), `active`.
 
+Depuis la 2.7, une récurrente est aussi un **abonnement** : sa périodicité, son prix en devise, son essai gratuit et un changement de prix annoncé sont dans `settings.opening.__subs` (aucune colonne ajoutée). `amount` reste toujours en FCFA ; une récurrente sans fiche est une charge mensuelle en FCFA.
+
 Depuis la 2.6, une échéance n'est jamais enregistrée toute seule : elle apparaît « À payer » jusqu'à ce que tu confirmes le paiement (montant réel, portefeuille, date), ce qui crée la dépense `rec-<id>-<AAAA-MM>` et fait avancer `last_month`. Les mois ignorés sont mémorisés dans `settings.opening.__skip`.
 
 ## `settings` : réglages
@@ -45,7 +47,7 @@ Le champ `opening` contient les soldes de départ par portefeuille (`especes`, `
 
 | Clé | Contenu |
 |---|---|
-| `__wallets` | Portefeuilles personnalisés : `id`, `label`, `color`, `kind`, `archived` |
+| `__wallets` | Portefeuilles personnalisés : `id`, `label`, `color`, `kind` (dont `card` : carte prépayée, depuis la 2.7), `archived` |
 | `__cats` | Catégories personnalisées et réglages des catégories de base : `id`, `label`, `color` (liste fermée), `need`, `words` (12 maximum), `archived` |
 | `__biens` | Biens du patrimoine : `id`, `name`, `value` |
 | `__cycle` | Jour de paie réglé à la main : `{ "day": 1 à 28 }` |
@@ -54,8 +56,9 @@ Le champ `opening` contient les soldes de départ par portefeuille (`especes`, `
 | `__hz` | Horizon du budget quotidien : `pay` (jusqu'à la prochaine paie) ou `month` (fin du mois) |
 | `__start` | Démarrage guidé : `{ "done": true }` une fois terminé ou passé |
 | `__chk` | Dernière vérification de solde par portefeuille : `{ <portefeuille>: <date> }` |
+| `__subs` | Abonnements : `fx` (taux `USD` et `EUR` en FCFA), `rf` (frais de recharge de la carte, en %), `m` (fiches par identifiant de récurrente : `p` période en mois 3, 6 ou 12, `a` mois d'ancrage `AAAA-MM`, `c` devise, `x` prix dans la devise, `t` fin d'essai, `n` prix annoncé `{ d, x }`), `ig` (30 services ignorés par la détection) |
 
-Toutes ces clés sont relues avec un repli sûr : une valeur inattendue est ignorée sans toucher à la base.
+Toutes ces clés sont relues avec un repli sûr : une valeur inattendue est ignorée sans toucher à la base. Pour `__subs`, chaque lecture et chaque import nettoient les fiches (clés dangereuses refusées, nombres bornés, dates vérifiées).
 
 ## `push_subscriptions` : appareils inscrits aux rappels
 
