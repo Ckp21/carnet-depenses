@@ -1,7 +1,7 @@
-# Carnet de dépenses V2.5
+# Carnet de dépenses V2.6
 
 Application personnelle de gestion des dépenses en FCFA, installable sur téléphone et utilisable hors ligne.
-Version 2.5, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
+Version 2.6, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
 
 ---
 
@@ -9,7 +9,7 @@ Version 2.5, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
 
 - **Saisie rapide** des dépenses et des **entrées d'argent** (salaire, prime, mission, autre), avec montants rapides.
 - **Frais Mobile Money** : champ dédié pour MTN MoMo et Airtel Money, total du mois et de l'année.
-- **Dépenses récurrentes** : loyer, forfait, factures, ajoutés automatiquement chaque mois au jour choisi.
+- **Dépenses récurrentes** : loyer, forfait, factures. Chaque échéance apparaît « À payer » puis « Payé » quand tu confirmes le montant réel, le portefeuille et la date.
 - **Objectif d'épargne** : épargne du mois, cumul depuis le début, graphique sur 6 mois.
 - **Bilan mensuel** : résumé du mois précédent affiché la première semaine du mois, et dans l'onglet Conseils.
 - **Conseils Congo** : projection de fin de mois, propositions par poste, comparaison INS Brazzaville, budgets proposés.
@@ -39,6 +39,21 @@ Version 2.5, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
 
 **Mise à jour d'une base V2.4** : exécuter `supabase/migration-2.5.sql` dans *SQL Editor* (relançable sans risque). Les rappels demandent en plus la fonction `send-reminders` et sa planification, voir `docs/notifications.md`.
 
+## 1 quater. Nouveautés de la V2.6
+
+- **Accueil allégé** : argent disponible, utilisable par jour jusqu'à la prochaine paie ou la fin du mois, prochaine échéance. Le reste est replié dans « Détails ».
+- **Vérifier mon solde** : l'écart avec la réalité devient un ajustement daté et motivé, jamais une dépense.
+- **Démarrage guidé** en 3 étapes, dépenses fréquentes en un geste, bouton Annuler, rappel du soir facultatif.
+- **Séparation perso et pro** : filtre Tout, Perso, Pro, sans jamais modifier les soldes réels.
+- **Opérations à corriger** : un envoi refusé par le serveur reste visible avec sa cause jusqu'à correction.
+- **Récurrentes À payer / Payé** avec confirmation du montant réel.
+- **Sauvegarde** : copie serveur de nuit, date de la dernière copie, restauration avec aperçu (ajoutés, remplacés, conservés). Guide : `docs/sauvegardes.md`.
+- **Accès** : mot de passe oublié, changement de mot de passe, afficher le mot de passe.
+- **Retours des testeurs** : « Envoyer le retour » et journal d'erreurs anonymisé. Guide : `docs/retours-testeurs.md`.
+- **Tests dans le dépôt** et contrôle automatique GitHub : `tests/README.md`.
+
+**Mise à jour d'une base V2.5** : exécuter `supabase/migration-2.6.sql` puis `supabase/cron-sauvegarde.sql` dans *SQL Editor* (relançables sans risque), et redéployer la fonction `send-reminders` (rappel du soir).
+
 ## 2. Architecture
 
 ```mermaid
@@ -59,7 +74,9 @@ flowchart LR
 | `supabase/schema.sql` et `migration-*.sql` | Création et évolution des tables et des règles de sécurité |
 | `supabase/functions/send-reminders/` | Fonction qui envoie les rappels (Web Push) |
 | `supabase/cron-rappels.sql` | Modèle de planification de l'envoi, à remplir hors dépôt |
-| `docs/` | Cahier des charges, modèle de données, repères Congo, guide des notifications |
+| `supabase/cron-sauvegarde.sql` | Planification de la copie serveur de nuit (aucun secret) |
+| `tests/`, `.github/workflows/` | Tests automatiques et contrôle à chaque modification |
+| `docs/` | Cahier des charges, modèle de données, repères Congo, notifications, sauvegardes, retours des testeurs |
 
 ## 3. Mise en service (une seule fois)
 
@@ -116,6 +133,7 @@ flowchart TD
   B -->|hors ligne ou échec| D[Nouvel essai automatique<br/>5 s, 15 s, 45 s, 2 min, puis 5 min]
   D --> B
   C --> E[Copie automatique<br/>toutes les 20 h si changement]
+  C --> H[Copie serveur de nuit<br/>03 h 30, sans ouvrir l'application]
   A --> F[Fichier JSON<br/>Fichiers ou WhatsApp]
   A --> G[Rapport du mois<br/>PDF ou résumé]
 ```
@@ -124,16 +142,21 @@ flowchart TD
 |---|---|---|
 | 1. Cache du téléphone | Navigateur de l'appareil | Jusqu'à la déconnexion |
 | 2. Base Supabase | Serveur | Tant que le projet existe |
-| 3. Copies automatiques | Table `backups` | 14 copies, plus 6 copies manuelles |
+| 3. Copies automatiques | Table `backups` | 14 copies de l'application, 14 copies serveur de nuit, 6 copies manuelles |
 | 4. Fichier JSON | Fichiers, WhatsApp, courriel | À ta charge, rappel après 45 jours |
 
-Le niveau 4 est le seul qui te protège si le compte Supabase est perdu : télécharge un fichier chaque mois. L'offre gratuite de Supabase ne propose pas de sauvegardes téléchargeables et met le projet en pause après environ une semaine sans activité.
+Les niveaux 2 et 3 sont dans le même projet Supabase : la copie serveur protège d'une erreur de manipulation ou d'un oubli d'ouvrir l'application, pas de la perte du compte. Le niveau 4 est le seul qui te protège dans ce cas : télécharge un fichier chaque mois. L'offre gratuite de Supabase ne propose pas de sauvegardes téléchargeables et met le projet en pause après environ une semaine sans activité.
 
 Restaurer ne supprime jamais rien : les éléments de la copie sont remis, le reste est conservé.
 
 ## 6. Mettre à jour l'application
 
-Modifier les fichiers, puis changer la constante `VERSION` dans `sw.js` (par exemple `carnet-v2.5.1`) avant de pousser. Les téléphones récupèrent la nouvelle version au lancement suivant.
+1. Modifier les fichiers sur une branche (jamais directement sur `main`).
+2. Changer `VERSION` dans `sw.js` (par exemple `carnet-v2.6.1`) et `APP_VERSION` dans `app.js` : `tests/node/sw.test.js` échoue si elles diffèrent.
+3. Lancer `tests/run-all.sh`.
+4. Ouvrir une demande de fusion (pull request) vers `main` : le contrôle automatique GitHub rejoue tous les tests.
+
+Les téléphones récupèrent la nouvelle version au lancement suivant.
 
 ## 7. Limites connues
 
@@ -142,3 +165,5 @@ Modifier les fichiers, puis changer la constante `VERSION` dans `sw.js` (par exe
 - Le bilan mensuel est calculé dans l'application ; il n'est pas envoyé par e-mail. Une notification te prévient le 1er du mois.
 - Les rappels demandent l'application installée sur l'écran d'accueil (iPhone 16.4 minimum) et un serveur de rappels configuré par toi (voir `docs/notifications.md`).
 - La lecture automatique des SMS n'est pas possible dans une application web : la saisie se fait en collant le SMS.
+- La copie serveur de nuit est dans le même projet Supabase que les données. Seul le fichier JSON téléchargé protège de la perte du compte.
+- Le courriel de réinitialisation du mot de passe passe par le service de messagerie de Supabase, limité à quelques envois par heure et réservé à l'équipe du projet tant qu'aucun service d'envoi personnalisé (SMTP) n'est configuré. Pour un testeur extérieur, voir `docs/retours-testeurs.md`.

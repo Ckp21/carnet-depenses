@@ -1,0 +1,85 @@
+{
+  "app": "carnet-depenses",
+  "version": 2,
+  "exported_at": "2026-10-13T13:38:41.162Z",
+  "expenses": [
+    {
+      "id": "2ab36641-bf7d-4342-a602-092f251920ed",
+      "amount": 2500,
+      "date": "2026-10-13",
+      "note": "Taxi Poto-Poto",
+      "created_at": "2026-10-13T13:38:35.583Z",
+      "updated_at": "2026-10-13T13:38:35.583Z",
+      "category": "transport",
+      "method": "mtn",
+      "fee": 100,
+      "recurring_id": null
+    },
+    {
+      "id": "rec-93197bd2-3a59-437f-ab69-280b910fedc6-2026-10",
+      "amount": 80000,
+      "fee": 0,
+      "category": "logement",
+      "method": "especes",
+      "date": "2026-10-01",
+      "note": "Loyer",
+      "recurring_id": "93197bd2-3a59-437f-ab69-280b910fedc6",
+      "created_at": "2026-10-13T13:38:36.067Z",
+      "updated_at": "2026-10-13T13:38:36.067Z"
+    },
+    {
+      "id": "5448be8e-7f4e-4aa8-a359-2c28136389ed",
+      "amount": 1500,
+      "date": "2026-10-13",
+      "note": "",
+      "created_at": "2026-10-13T13:38:38.147Z",
+      "updated_at": "2026-10-13T13:38:38.147Z",
+      "category": "alimentation",
+      "method": "especes",
+      "fee": 0,
+      "recurring_id": null
+    }
+  ],
+  "incomes": [
+    {
+      "id": "aa26d6e7-d28e-414d-bf71-0bab8169af36",
+      "amount": 400000,
+      "date": "2026-10-13",
+      "note": "",
+      "created_at": "2026-10-13T13:38:34.950Z",
+      "updated_at": "2026-10-13T13:38:34.950Z",
+      "source": "salaire"
+    }
+  ],
+  "budgets": {
+    "alimentation": 124500,
+    "logement": 80000,
+    "factures": 20000,
+    "transport": 25000,
+    "communication": 17000,
+    "vetements": 17500,
+    "loisirs": 19000,
+    "famille": 12500,
+    "sante": 6000,
+    "education": 7500,
+    "autres": 11000
+  },
+  "recurring": [
+    {
+      "id": "93197bd2-3a59-437f-ab69-280b910fedc6",
+      "label": "Loyer",
+      "amount": 80000,
+      "fee": 0,
+      "category": "logement",
+      "method": "especes",
+      "day": 1,
+      "last_month": "2026-10",
+      "active": true,
+      "created_at": "2026-10-13T13:38:36.063Z",
+      "updated_at": "2026-10-13T13:38:36.067Z"
+    }
+  ],
+  "settings": {
+    "savings_goal": 60000
+  }
+}

@@ -21,13 +21,21 @@ Montants en FCFA, entiers. Dates au format `AAAA-MM-JJ`. Chaque table porte `use
 
 `id`, `amount`, `source` (salaire, prime, mission, autre), `date`, `note`.
 
+## `moves` : mouvements entre portefeuilles
+
+`id`, `kind`, `amount`, `fee`, `date`, `from_wallet`, `to_wallet`, `note`, `ref_id` (tontine, prêt, dette ou projet concerné). Types : `transfer`, `tontine_out`, `tontine_in`, `loan_out`, `loan_back`, `debt_in`, `debt_pay`, `project` et, depuis la 2.6, `adjust`.
+
+Un `adjust` vient de « Vérifier mon solde » : un seul portefeuille (`from_wallet` si l'argent manque, `to_wallet` s'il y en a plus), note `Ajustement : <motif>` (120 caractères). Il corrige le solde sans jamais compter comme une dépense ou un revenu.
+
 ## `budgets` : budgets mensuels
 
 Clé (`user_id`, `category`), `amount`.
 
 ## `recurring` : dépenses récurrentes
 
-`id`, `label`, `amount`, `fee`, `category`, `method`, `day` (1 à 28), `last_month` (dernier mois généré, `AAAA-MM`), `active`.
+`id`, `label`, `amount`, `fee`, `category`, `method`, `day` (1 à 28), `last_month` (dernier mois réglé, `AAAA-MM`), `active`.
+
+Depuis la 2.6, une échéance n'est jamais enregistrée toute seule : elle apparaît « À payer » jusqu'à ce que tu confirmes le paiement (montant réel, portefeuille, date), ce qui crée la dépense `rec-<id>-<AAAA-MM>` et fait avancer `last_month`. Les mois ignorés sont mémorisés dans `settings.opening.__skip`.
 
 ## `settings` : réglages
 
@@ -41,7 +49,11 @@ Le champ `opening` contient les soldes de départ par portefeuille (`especes`, `
 | `__cats` | Catégories personnalisées et réglages des catégories de base : `id`, `label`, `color` (liste fermée), `need`, `words` (12 maximum), `archived` |
 | `__biens` | Biens du patrimoine : `id`, `name`, `value` |
 | `__cycle` | Jour de paie réglé à la main : `{ "day": 1 à 28 }` |
-| `__rem` | Rappels : `lead` (0, 1 ou 2 jours avant), `hour` (7, 8, 12 ou 18 h, heure de Brazzaville), `amounts` (montant dans la notification) |
+| `__rem` | Rappels : `lead` (0, 1 ou 2 jours avant), `hour` (7, 8, 12 ou 18 h, heure de Brazzaville), `amounts` (montant dans la notification), `evening` (rappel du soir à 20 h, sans montant) |
+| `__skip` | Échéances récurrentes ignorées : liste de `<id>\|<AAAA-MM>` |
+| `__hz` | Horizon du budget quotidien : `pay` (jusqu'à la prochaine paie) ou `month` (fin du mois) |
+| `__start` | Démarrage guidé : `{ "done": true }` une fois terminé ou passé |
+| `__chk` | Dernière vérification de solde par portefeuille : `{ <portefeuille>: <date> }` |
 
 Toutes ces clés sont relues avec un repli sûr : une valeur inattendue est ignorée sans toucher à la base.
 
@@ -55,7 +67,13 @@ Toutes ces clés sont relues avec un repli sûr : une valeur inattendue est igno
 
 ## `backups` : copies automatiques
 
-`id` (uuid), `user_id`, `kind` (`auto` ou `manuel`), `counts` (nombre d'éléments, pour l'affichage), `payload` (copie complète au format du fichier JSON, moins de 20 Mo), `created_at`. Un déclencheur conserve les 14 dernières copies automatiques et les 6 dernières copies manuelles.
+`id` (uuid), `user_id`, `kind` (`auto`, `manuel` ou `serveur`), `counts` (nombre d'éléments et signature `sig` du contenu, pour l'affichage et la détection de changement), `payload` (copie complète au format du fichier JSON, moins de 20 Mo), `created_at`. Un déclencheur conserve les 14 dernières copies automatiques, les 14 dernières copies serveur et les 6 dernières copies manuelles.
+
+Les copies `serveur` sont créées chaque nuit par la fonction `snapshot_backups()` (planifiée par `supabase/cron-sauvegarde.sql`), sans ouvrir l'application. Voir `docs/sauvegardes.md`.
+
+## `journal` : incidents et retours
+
+`id`, `user_id`, `kind` (`erreur` ou `retour`), `message` (1000 caractères), `context` (JSON de moins de 4 Ko : version, écran, diagnostic technique), `created_at`. L'application anonymise avant l'envoi : aucun montant, aucune note, aucune adresse e-mail. L'utilisateur peut lire et ajouter, pas modifier ni supprimer. 60 lignes par heure au plus, 300 conservées. Voir `docs/retours-testeurs.md`.
 
 ## Règles de calcul
 

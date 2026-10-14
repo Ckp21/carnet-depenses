@@ -42,9 +42,24 @@ Deno.serve(async (req) => {
     if (error) throw error;
 
     const subsByUser = new Map<string, { endpoint: string; p256dh: string; auth: string }[]>();
-    let sent = 0, retry = 0, dropped = 0;
+    let sent = 0, retry = 0, dropped = 0, skipped = 0;
 
     for (const r of due ?? []) {
+      // Rappel du soir (« as-tu noté tes dépenses ? ») : ignoré s'il arrive trop tard ou si une dépense est déjà notée ce jour-là
+      if (r.tag === "soir") {
+        const day = String(r.id).slice(-10);
+        const late = now.getTime() - Date.parse(r.fire_at) > 3 * 3600 * 1000;
+        let done = false;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+          const { count } = await db.from("expenses").select("id", { count: "exact", head: true }).eq("user_id", r.user_id).eq("date", day);
+          done = (count ?? 0) > 0;
+        }
+        if (late || done) {
+          await db.from("reminders").update({ sent_at: now.toISOString(), note: (done ? "déjà noté : rappel non envoyé" : "trop tard : rappel du soir ignoré") }).eq("id", r.id);
+          skipped++;
+          continue;
+        }
+      }
       if (!subsByUser.has(r.user_id)) {
         const { data } = await db.from("push_subscriptions").select("endpoint,p256dh,auth").eq("user_id", r.user_id);
         subsByUser.set(r.user_id, data ?? []);
@@ -88,7 +103,7 @@ Deno.serve(async (req) => {
     // Nettoyage : rappels envoyés depuis plus de 14 jours
     await db.from("reminders").delete().lt("sent_at", new Date(now.getTime() - 14 * 24 * 3600 * 1000).toISOString());
 
-    return json({ ok: true, due: due?.length ?? 0, sent, retry, dropped });
+    return json({ ok: true, due: due?.length ?? 0, sent, retry, dropped, skipped });
   } catch (e) {
     console.error(e);
     return json({ error: String((e as Error)?.message ?? e) }, 500);

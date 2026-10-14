@@ -4,6 +4,8 @@ Le carnet prévient le téléphone même quand l'application est fermée : loyer
 
 Par défaut, aucune notification ne contient de montant. L'option se règle dans *Réglages > Rappels par notification*.
 
+Depuis la 2.6, un **rappel du soir** facultatif demande à 20 h : « As-tu noté tes dépenses d'aujourd'hui ? ». Il ne contient jamais de montant et n'est pas envoyé si une dépense est déjà notée ce jour-là.
+
 ---
 
 ## 1. Comment ça marche
@@ -18,6 +20,8 @@ flowchart LR
 ```
 
 L'application recalcule la liste à chaque synchronisation. Un rappel déjà envoyé n'est jamais renvoyé. Un rappel en retard de plus de 24 heures est abandonné plutôt que livré hors de propos.
+
+**Rappel du soir** : l'application programme les 4 prochains soirs (identifiant `r-soir-<date>`, étiquette `soir`), sauf ceux où une dépense est déjà notée. Avant chaque envoi, la fonction vérifie encore la base : si une dépense existe à cette date, ou si le rappel a plus de 3 heures de retard, il est marqué « ignoré » dans la colonne `note` et rien n'est envoyé.
 
 Heure de Brazzaville : UTC+1, sans changement d'heure. Le décalage maximal entre l'heure choisie et l'arrivée de la notification est de 5 minutes.
 
@@ -36,7 +40,7 @@ Sur Android, Chrome suffit : l'installation n'est pas obligatoire.
 
 ### 3.1 Base de données
 
-*Supabase > SQL Editor* : exécuter `supabase/migration-2.4-securite.sql` si ce n'est pas déjà fait, puis `supabase/migration-2.5.sql`. Les deux fichiers peuvent être relancés sans risque.
+*Supabase > SQL Editor* : exécuter `supabase/migration-2.4-securite.sql` si ce n'est pas déjà fait, puis `supabase/migration-2.5.sql`. Les fichiers peuvent être relancés sans risque. La 2.6 ajoute `supabase/migration-2.6.sql` (voir `docs/sauvegardes.md`).
 
 À la fin, le résultat doit afficher `rowsecurity = true` pour `backups`, `push_subscriptions` et `reminders`.
 
@@ -63,6 +67,8 @@ Sur Android, Chrome suffit : l'installation n'est pas obligatoire.
 4. Ouvrir la fonction, onglet *Details* : désactiver **Verify JWT**. La fonction se protège elle-même avec `CRON_SECRET`, et la planification (point 3.4) n'envoie pas de jeton de connexion.
 
 Avec l'outil en ligne de commande : `supabase functions deploy send-reminders --no-verify-jwt`.
+
+> **Mise à jour 2.6** : si la fonction existe déjà, la redéployer avec le nouveau contenu de `index.ts`. Sans cela, le rappel du soir est envoyé même quand tu as déjà noté tes dépenses. Le réglage « Verify JWT » désactivé est conservé.
 
 ### 3.4 Planifier l'envoi
 
