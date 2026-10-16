@@ -46,7 +46,7 @@ async def main():
     cats=await page.evaluate("CATS.map(c=>c[0])")
     check('A. identifiants dangereux rejetés',not any(i in cats for i in ['__proto__','constructor','toString','a b<c>']) and all(len(i)<=100 for i in cats),cats)
     check('A. « frais » non usurpable',await page.evaluate("CAT.frais.label")=='Frais financiers')
-    check('A. catégories limitées',await page.evaluate("CATS.length")<=11+20+1,await page.evaluate("CATS.length"))
+    check('A. catégories limitées',await page.evaluate("CATS.length")<=14+20+1,await page.evaluate("CATS.length"))
     check('A. couleur piégée remplacée',await page.evaluate("CATS.every(c=>/^#[0-9A-Fa-f]{6}$/.test(c[2]))"))
     check('A. mots-clés bornés',await page.evaluate("Object.values(CUSTOM_WORDS).every(w=>w.length<=12&&w.every(x=>x.length<=24))"))
     # saisie avec devinette de catégorie sur un texte long (pas de blocage)

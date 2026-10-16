@@ -1,5 +1,31 @@
 # Historique des versions
 
+## 2.8.0 (octobre 2026)
+
+### Le carnet s'adapte à ta situation
+- Nouveau bloc **Réglages > Ma situation** (premier de l'écran) : statut (stagiaire ou étudiant, CDD, CDI ou fonctionnaire, indépendant, retraité, sans revenu régulier), logement (locataire, propriétaire, hébergé), déplacements (taxi et bus, moto, voiture, à pied ou trajet pris en charge), personnes à charge. Chaque réponse est facultative.
+- Les **budgets proposés ne réservent plus rien pour ce que tu ne paies pas** : hébergé sans loyer, pas de budget Logement ; déplacements pris en charge, pas de budget Transport ; sans enfant ni famille à charge, pas de budget Éducation (sauf pour un stagiaire ou un étudiant). La part de ces postes est répartie sur les autres.
+- Tes dépenses réelles passent toujours avant tes réponses : un poste où tu as noté des dépenses dans les 90 derniers jours, ou une charge régulière active, reste proposé. Chaque poste peut aussi être coché ou décoché à la main (« Postes que je paie »), et ce choix l'emporte sur tout.
+- L'écran des budgets proposés dit ce qui a été écarté et pourquoi, avec un lien « Modifier ma situation ».
+- Fin de stage ou de contrat : une date de fin facultative déclenche, dans les 90 jours, une alerte sur l'accueil qui indique combien de mois ton argent disponible couvre. Pour un revenu instable (stage, CDD, indépendant, sans revenu régulier), un conseil propose de viser 6 mois de fonds d'urgence, en un geste.
+- Le **démarrage guidé** passe à 4 étapes et commence par la situation. Les étapes suivantes s'adaptent : un stagiaire parle d'indemnité, un indépendant de revenus irréguliers (budget du jour calculé jusqu'à la fin du mois, sans rappel insistant pour un jour de paie), un retraité de pension. Les charges proposées changent aussi (pas de loyer pour une personne hébergée).
+
+### Nouvelles lignes de budget
+- Trois catégories de base : **Soins du corps** (coiffure, tresses, manucure, pédicure, parfum, pommade), **Sport et activités** (salle de sport, foot en salle, tennis, piscine) et **Abonnements en ligne** (musique, cloud, vidéo). Les mots-clés les reconnaissent à la saisie.
+- Elles n'ont pas de repère national : leur budget proposé part de tes montants réels (moyenne de tes mois notés, ou charges régulières), plafonné à 15 % des entrées. Sans dépense notée, rien n'est proposé et l'écran l'indique.
+- Un nouvel abonnement est rangé par défaut dans « Abonnements en ligne ». La suggestion « Coiffure et beauté » disparaît des modèles, remplacée par la catégorie de base. Les catégories déjà créées ne changent pas.
+
+### Types d'entrées plus variés
+- Trois familles : **revenus de travail** (salaire, primes et commissions, honoraires et missions, pourboires, indemnité de stage), **revenus de capital** (revenus locatifs, dividendes, intérêts), **prestations et dons** (pension, indemnisation, allocations et aides, dons et cadeaux), plus « Autre ». Les anciennes entrées gardent leur type.
+- Le jour de paie peut être déduit d'un salaire, d'une indemnité de stage ou d'une pension.
+
+### Sécurité et tests
+- Les réponses (`settings.opening.__profil`) sont assainies à chaque lecture et à l'import : valeurs hors liste, clés dangereuses, dates impossibles et plus de 40 choix de postes sont écartés sans toucher à la base.
+- Nouveaux lots : `test_situation_2_8` (52 vérifications) et `test_securite_2_8` (18 vérifications). Les lots du démarrage guidé, de la catégorie « Autres » hors ligne et du plafond de catégories sont adaptés.
+
+### Mise à jour depuis la 2.7
+Aucune action Supabase : pas de migration, pas de fonction à redéployer. L'application se met à jour toute seule au lancement suivant. Les données existantes sont reprises telles quelles, les budgets déjà enregistrés ne bougent pas. Retour à la 2.7 possible : la clé `__profil` est simplement ignorée.
+
 ## 2.7.0 (octobre 2026)
 
 ### Accueil plus clair
