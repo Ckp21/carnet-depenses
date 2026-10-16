@@ -70,6 +70,7 @@ Version 2.7, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
 - **Fin de stage ou de contrat** : alerte sur l'accueil avec le nombre de mois que couvre ton argent, et conseil de fonds d'urgence à 6 mois pour un revenu instable.
 - **Nouvelles lignes de budget** : soins du corps, sport et activités, abonnements en ligne, proposées d'après tes montants réels.
 - **Types d'entrées plus variés**, en trois familles : revenus de travail, revenus de capital, prestations et dons.
+- **2.8.1** : bandeau « Budget sans objet » (retirer en deux temps, annulable, ou « Je le paie ») et postes non payés repliés sous « Autres postes » dans les budgets.
 
 **Mise à jour depuis la V2.7** : rien à faire côté Supabase.
 
