@@ -33,6 +33,16 @@ flowchart TD
 - **Ton choix manuel passe avant tout.** Dans « Postes que je paie », chaque case peut être cochée ou décochée. Une case touchée à la main n'est plus modifiée par les réponses.
 - **Soins du corps, sport et abonnements en ligne** n'ont pas de repère national. Leur budget proposé vient de tes moyennes réelles (ou de tes charges régulières), plafonné à 15 % des entrées. Sans dépense notée, rien n'est proposé.
 
+### 2.1 Budget déjà saisi pour un poste que tu ne paies pas
+
+Depuis la 2.8.1, si un budget existe pour un poste écarté par ta situation, **Plan > Budgets mensuels** affiche le bandeau « Budget sans objet ».
+
+- **Retirer ce budget** : un premier appui demande confirmation, le second supprime ce seul budget. Un message « Annuler » le rétablit au même montant.
+- **Je le paie** : le poste est marqué payé dans Ma situation (`__profil.pay.<poste> = true`), le budget reste.
+- Rien n'est signalé si tu as des dépenses récentes sur ce poste, une charge régulière active, ou si ta situation n'est pas renseignée.
+
+Dans l'éditeur, les postes non payés, sans budget ni dépense du mois, sont repliés sous « Autres postes (N) ».
+
 ## 3. Fin de stage ou de contrat
 
 Pour un stagiaire ou un CDD, une date de fin facultative est demandée. Dans les 90 jours qui précèdent, l'accueil affiche une alerte avec le nombre de mois que couvre ton argent disponible. Pour un revenu instable (stage, CDD, indépendant, sans revenu régulier), le carnet conseille de viser 6 mois de fonds d'urgence, avec un bouton pour le régler.

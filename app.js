@@ -133,7 +133,7 @@ const HAS_WEBAUTHN=!!(window.PublicKeyCredential&&navigator.credentials);
 const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 
 /* ---------- État ---------- */
-const APP_VERSION='2.8.0';
+const APP_VERSION='2.8.1';
 const K={push:'cd2-push',remSig:'cd2-remsig',testId:'cd2-testid',bkAt:'cd2-bk-at',bkSig:'cd2-bk-sig',bkErr:'cd2-bk-err',fileBk:'cd2-file-bk',bkSnooze:'cd2-bk-snooze',firstUse:'cd2-first-use',synclog:'cd2-synclog',lastOk:'cd2-last-ok',remember:'cd2-remember',passkey:'cd2-passkey',lock:'cd2-lock',hiddenAt:'cd2-hidden-at',cache:'cd2-cache',outbox:'cd2-outbox',uid:'cd2-uid',email:'cd2-email',tab:'cd2-tab',met:'cd2-met',bilan:'cd2-bilan-vu',span:'cd2-span',rej:'cd2-rejected',errq:'cd2-errq',favOff:'cd2-fav-off',scope:'cd2-scope',onbSnooze:'cd2-onb-snooze',planView:'cd2-planview'};
 const DEF_SETTINGS={savings_goal:0,opening:{},opening_date:null,emergency_months:3,inflation:4};
 const EMPTY=()=>({expenses:{},incomes:{},budgets:{},recurring:{},moves:{},plans:{},settings:Object.assign({},DEF_SETTINGS)});
@@ -938,6 +938,32 @@ function saveProfil(){
 }
 const goProfil=()=>{if(S.tab!=='settings')bkList=null;S.tab='settings';LS.set(K.tab,'settings');render();setTimeout(()=>{const e=$('profil');if(e)e.scrollIntoView()},60)};
 const emSix=()=>{mutate([settingsRow({emergency_months:6})]);toast('Fonds d\'urgence visé : 6 mois')};
+// Budget sans objet : un budget existe pour un poste que la situation dit non payé (sans dépense récente), ou décoché à la main.
+// Les postes sans repère (soins, sport, abonnements) ne sont signalés que si tu les as décochés toi-même.
+function staleBudgets(){
+  const p=profNow(), pay=p.pay||{};
+  return CATS.map(c=>c[0]).filter(c=>(D.budgets[c]||0)>0&&!catPays(c)&&(pay[c]===false||['logement','transport','education'].includes(c)));
+}
+function staleBudgetBlock(){
+  return staleBudgets().map(c=>{
+    const lab=CAT[c].label, arm=S.armed==='bd:'+c;
+    return msg('warning','Budget sans objet : '+esc(lab),`Tu as réservé ${fmt(D.budgets[c])} pour ce poste, que tu as indiqué ne pas payer. <button type="button" class="linkbtn" ${arm?'style="color:var(--danger)" ':''}data-act="bdDrop" data-c="${esc(c)}" aria-label="Retirer le budget ${esc(lab)}">${arm?'Confirmer le retrait':'Retirer ce budget'}</button> ou <button type="button" class="linkbtn" data-act="bdKeep" data-c="${esc(c)}" aria-label="Je paie ${esc(lab)}">Je le paie</button>`);
+  }).join('');
+}
+// Retirer un budget demande une confirmation en deux temps, puis reste annulable pendant quelques secondes
+function bdDrop(c){
+  const old=D.budgets[c]||0;if(!SAFE_ID(c)||!CAT[c]||!(old>0))return;
+  if(S.armed!=='bd:'+c){S.armed='bd:'+c;render();return}
+  S.armed=null;mutate([{t:'budgets',op:'delete',key:c}]);
+  toast('Budget retiré : '+CAT[c].label,()=>{mutate([{t:'budgets',op:'upsert',row:{category:c,amount:old,updated_at:nowISO()}}]);toast('Budget rétabli')});
+}
+// « Je le paie » : choix manuel enregistré dans la situation, qui l'emporte sur les réponses
+function bdKeep(c){
+  if(!SAFE_ID(c)||!CAT[c])return;
+  const p=Object.assign({},profNow());p.pay=Object.assign({},p.pay||{});p.pay[c]=true;
+  const op=Object.assign({},D.settings.opening);op.__profil=cleanProfil(p);
+  mutate([settingsRow({opening:op})]);toast('Noté : tu paies ce poste ('+CAT[c].label+')');
+}
 // Fin de stage ou de contrat proche : combien de mois l'argent disponible tient-il ?
 function profilAlertBlock(){
   const p=profNow();if(!p.fin||!['stagiaire','cdd'].includes(p.st))return '';
@@ -1667,17 +1693,21 @@ function renderPlan(){
 function renderBudgetsBlock(){
   const cats=byCat(monthItems(S.month));
   const T=toAllocate(S.month);
-  let h='';
+  let h=staleBudgetBlock();
   if(T){const st=T.rest>0?'warning':T.rest<0?'danger':'success';
     h+=`<section class="block"><div class="block-head"><p class="over">Chaque franc a une mission</p>${pill(st,T.rest===0?'Tout est affecté':T.rest>0?'Reste à affecter':'Trop affecté')}</div>
       <div class="big num" style="font-size:28px;color:var(--${T.rest<0?'danger':'forest-900'})">${fmtS(T.rest)}</div>
       <div class="ref num"><span>Entrées du mois</span><span class="v">${fmt(T.R)}</span><span>Budgets</span><span class="v">− ${fmt(T.bud)}</span><span>Épargne visée</span><span class="v">− ${fmt(T.goal)}</span><span>Tontines</span><span class="v">− ${fmt(T.eng)}</span><span>Projets d'épargne</span><span class="v">− ${fmt(T.proj)}</span></div>
       <p class="hint">${T.rest>0?'Donne une mission à ce reste : augmente un budget, ou envoie-le vers l\'épargne.':T.rest<0?'Tes affectations dépassent tes entrées : réduis un budget ou l\'épargne visée.':'Chaque franc de tes entrées a une affectation.'}</p>
       ${T.rest>0?`<div class="actions"><button type="button" class="btn-primary sm" data-act="restToSavings">Ajouter ${fmt(T.rest)} à l'épargne visée</button></div>`:''}</section>`}
+  // Les postes que tu ne paies pas, sans budget ni dépense ce mois-ci, sont repliés : ils restent à un geste
+  const row=([c,label,color])=>{const b=D.budgets[c]||0, s=cats[c]||0;
+    return `<div class="form-row"><div class="lab"><span class="dot" style="background:${color}"></span><span>${esc(label)}</span></div><label class="field"><input class="r" id="b-${c}" data-bud="${c}" inputmode="numeric" placeholder="-" value="${b?group(b):''}" aria-label="Budget ${esc(label)}"><span>FCFA</span></label>
+      <span class="meta num">Dépensé ce mois : ${fmt(s)}${b?` · ${Math.round(s/b*100)} %`:''}</span></div>`};
+  const shown=x=>catPays(x[0])||(D.budgets[x[0]]||0)>0||(cats[x[0]]||0)>0, main=CATS.filter(shown), rest=CATS.filter(x=>!shown(x));
   h+=`<section class="block"><div class="block-head"><p class="over">Budgets mensuels</p><small>valables chaque mois</small></div><p class="hint">Laisse vide pour ne pas suivre une catégorie. Alerte à 80 % et à 100 %.</p><div>`;
-  for(const [c,label,color] of CATS){const b=D.budgets[c]||0, s=cats[c]||0;
-    h+=`<div class="form-row"><div class="lab"><span class="dot" style="background:${color}"></span><span>${esc(label)}</span></div><label class="field"><input class="r" id="b-${c}" data-bud="${c}" inputmode="numeric" placeholder="-" value="${b?group(b):''}" aria-label="Budget ${esc(label)}"><span>FCFA</span></label>
-      <span class="meta num">Dépensé ce mois : ${fmt(s)}${b?` · ${Math.round(s/b*100)} %`:''}</span></div>`}
+  h+=main.map(row).join('');
+  if(rest.length)h+=`<details data-keep="budother" ${S.budother?'open':''}><summary class="linkbtn">Autres postes (${rest.length})</summary><p class="hint">Postes que tu ne paies pas ou que tu n'as pas encore utilisés : ${rest.map(x=>esc(x[1])).join(', ')}. Ajoute un budget si tu en as besoin.</p>${rest.map(row).join('')}</details>`;
   return h+`</div><div class="actions" style="justify-content:space-between;align-items:center"><span class="hint num">Total budgété : ${fmt(sumBy(Object.values(D.budgets),v=>v||0))}</span><button type="button" class="btn-primary" data-act="saveBud">Enregistrer les budgets</button></div></section>`;
 }
 function tipFor(c,x,t){
@@ -2713,7 +2743,7 @@ const reportBlock=()=>`<section class="block"><div class="block-head"><p class="
 document.addEventListener('click',ev=>{
   const t=ev.target.closest('button,[data-edit],[data-income],[data-move],[data-act]');if(!t)return;
   const ds=t.dataset;
-  if(S.armed&&!(ds.act==='applyProp'||ds.act==='applyOwn'||ds.act==='logout'||ds.act==='archiveWallet'||ds.act==='archiveCat'||ds.recDel||ds.subDel||ds.planDel||ds.assetDel||ds.recSkip||ds.rejDrop!==undefined))S.armed=null;
+  if(S.armed&&!(ds.act==='applyProp'||ds.act==='applyOwn'||ds.act==='logout'||ds.act==='archiveWallet'||ds.act==='archiveCat'||ds.act==='bdDrop'||ds.recDel||ds.subDel||ds.planDel||ds.assetDel||ds.recSkip||ds.rejDrop!==undefined))S.armed=null;
   if(ds.rejRetry!==undefined){rejRetry(+ds.rejRetry);return}
   if(ds.rejEdit!==undefined){rejEdit(+ds.rejEdit);return}
   if(ds.rejDrop!==undefined){rejDrop(+ds.rejDrop);return}
@@ -2762,7 +2792,7 @@ document.addEventListener('click',ev=>{
     smsToggle:()=>{$('smsArea').hidden=!$('smsArea').hidden;if(!$('smsArea').hidden)$('smsText').focus()},
     toggleDiscreet:()=>{LS.set('cd2-discreet',!discreet());applyDiscreet();render()},
     sendFeedback:()=>sendFeedback('send'),shareFeedback:()=>sendFeedback('share'),changePwd,
-    applyOwn,saveProfil,goProfil,emSix,toggleMore:()=>{S.more=!S.more;render()},startOnb,onbNext,onbBack,onbLater,onbSkip,onbFirst,dlgClose:closeDlg,ckSave,ckExpense,adjDel:()=>adjDel(ds.id),
+    applyOwn,saveProfil,goProfil,emSix,bdDrop:()=>bdDrop(ds.c),bdKeep:()=>bdKeep(ds.c),toggleMore:()=>{S.more=!S.more;render()},startOnb,onbNext,onbBack,onbLater,onbSkip,onbFirst,dlgClose:closeDlg,ckSave,ckExpense,adjDel:()=>adjDel(ds.id),
     toastUndo:()=>{const u=toast.undo;toast.undo=null;$('toast').hidden=true;if(u)u()},
     syncNow:()=>sync(true).then(()=>toast(navigator.onLine?'Synchronisé':'Hors ligne : réessaie plus tard')),logout};
   if(acts[ds.act])acts[ds.act]();

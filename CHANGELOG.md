@@ -1,5 +1,23 @@
 # Historique des versions
 
+## 2.8.1 (octobre 2026)
+
+Correctif de cohérence entre « Ma situation » et les budgets déjà saisis. Aucune nouvelle donnée, aucun changement du formulaire de dépense.
+
+### Budget sans objet
+- Dans **Plan > Budgets mensuels**, un bandeau signale un budget réservé pour un poste que tu as indiqué ne pas payer (par exemple 80 000 FCFA de Logement alors que tu es hébergé). Il n'apparaît que si tu n'as noté aucune dépense récente sur ce poste ni de charge régulière active.
+- Deux gestes : **Retirer ce budget** (un second appui confirme, puis un message permet d'annuler pendant quelques secondes) ou **Je le paie** (ton choix est mémorisé dans Ma situation, le budget est conservé).
+- Un budget n'est jamais retiré sans ton accord. Sans situation renseignée, rien n'est deviné. Un budget Sport, Soins ou Abonnements sans historique n'est signalé que si tu as décoché ce poste toi-même.
+
+### Éditeur de budgets plus court
+- Les postes que tu ne paies pas, sans budget ni dépense ce mois-ci, passent sous **Autres postes (N)**, replié au départ. Les 14 postes restent saisissables : il suffit d'ouvrir le repli. Un poste dès qu'il reçoit un budget ou une dépense revient dans la liste principale.
+
+### Tests
+- Nouveau lot `test_coherence_2_8_1` (40 vérifications).
+
+### Mise à jour depuis la 2.8
+Aucune action Supabase : pas de migration, pas de fonction à redéployer. L'application se met à jour toute seule au lancement suivant. Les budgets et réponses existants sont repris tels quels.
+
 ## 2.8.0 (octobre 2026)
 
 ### Le carnet s'adapte à ta situation
