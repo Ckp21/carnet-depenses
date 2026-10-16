@@ -11,7 +11,7 @@ Montants en FCFA, entiers. Dates au format `AAAA-MM-JJ`. Chaque table porte `use
 | `id` | texte | identifiant unique ; `rec-<récurrente>-<AAAA-MM>` pour une dépense générée |
 | `amount` | entier | > 0 |
 | `fee` | entier | frais Mobile Money, 0 par défaut |
-| `category` | texte | alimentation, transport, logement, factures, communication, sante, famille, loisirs, vetements, education, autres |
+| `category` | texte | alimentation, transport, logement, factures, communication, sante, famille, loisirs, vetements, education, soins, sport, abonnements, autres (plus les catégories personnalisées `c-...`) |
 | `method` | texte | especes, mtn, airtel, banque |
 | `date` | date | |
 | `note` | texte | 120 caractères max |
@@ -19,7 +19,7 @@ Montants en FCFA, entiers. Dates au format `AAAA-MM-JJ`. Chaque table porte `use
 
 ## `incomes` : entrées d'argent
 
-`id`, `amount`, `source` (salaire, prime, mission, autre), `date`, `note`.
+`id`, `amount`, `source`, `date`, `note`. Sources reconnues depuis la 2.8 : salaire, prime, mission, pourboire, stage (travail) ; locatif, dividende, interet (capital) ; pension, indemnite, aide, don (prestations et dons) ; autre. Le champ est du texte libre côté serveur : une valeur inconnue est lue comme « autre » par l'application, sans rien modifier en base.
 
 ## `moves` : mouvements entre portefeuilles
 
@@ -54,11 +54,12 @@ Le champ `opening` contient les soldes de départ par portefeuille (`especes`, `
 | `__rem` | Rappels : `lead` (0, 1 ou 2 jours avant), `hour` (7, 8, 12 ou 18 h, heure de Brazzaville), `amounts` (montant dans la notification), `evening` (rappel du soir à 20 h, sans montant) |
 | `__skip` | Échéances récurrentes ignorées : liste de `<id>\|<AAAA-MM>` |
 | `__hz` | Horizon du budget quotidien : `pay` (jusqu'à la prochaine paie) ou `month` (fin du mois) |
+| `__profil` | Situation (depuis la 2.8) : `st` (stagiaire, cdd, cdi, indep, retraite, sans), `lg` (loc, prop, heb), `tr` (public, moto, voiture, pied), `ch` (0, 1 ou 3), `fin` (date de fin de stage ou de contrat), `pay` (choix à la main par catégorie : `{ <catégorie>: true ou false }`, 40 maximum) |
 | `__start` | Démarrage guidé : `{ "done": true }` une fois terminé ou passé |
 | `__chk` | Dernière vérification de solde par portefeuille : `{ <portefeuille>: <date> }` |
 | `__subs` | Abonnements : `fx` (taux `USD` et `EUR` en FCFA), `rf` (frais de recharge de la carte, en %), `m` (fiches par identifiant de récurrente : `p` période en mois 3, 6 ou 12, `a` mois d'ancrage `AAAA-MM`, `c` devise, `x` prix dans la devise, `t` fin d'essai, `n` prix annoncé `{ d, x }`), `ig` (30 services ignorés par la détection) |
 
-Toutes ces clés sont relues avec un repli sûr : une valeur inattendue est ignorée sans toucher à la base. Pour `__subs`, chaque lecture et chaque import nettoient les fiches (clés dangereuses refusées, nombres bornés, dates vérifiées).
+Toutes ces clés sont relues avec un repli sûr : une valeur inattendue est ignorée sans toucher à la base. Pour `__subs` et `__profil`, chaque lecture et chaque import nettoient les valeurs (clés dangereuses refusées, valeurs hors liste, nombres bornés, dates vérifiées).
 
 ## `push_subscriptions` : appareils inscrits aux rappels
 

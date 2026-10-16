@@ -25,7 +25,7 @@ create table if not exists public.incomes (
   id          text primary key,
   user_id     uuid not null default auth.uid() references auth.users on delete cascade,
   amount      integer not null check (amount > 0),
-  source      text not null default 'salaire',               -- salaire, prime, mission, autre
+  source      text not null default 'salaire',               -- texte libre : salaire, prime, mission, pourboire, stage, locatif, dividende, interet, pension, indemnite, aide, don, autre
   date        date not null,
   note        text not null default '' check (char_length(note) <= 120),
   created_at  timestamptz not null default now(),

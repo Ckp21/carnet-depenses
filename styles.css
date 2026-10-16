@@ -477,3 +477,10 @@ pre.diag{margin:8px 0 0;padding:12px;border-radius:8px;background:var(--mist-100
 .hzseg.set{background:var(--mist-100);margin:4px 0 8px}
 .hzseg.set button{color:var(--ink-600);padding:8px 6px}
 .hzseg.set button[aria-pressed="true"]{background:var(--forest-900);color:var(--white)}
+
+/* 2.8 : types d'entrées par familles, situation et postes payés */
+.fam{margin:12px 0 4px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-500)}
+.fam:first-child{margin-top:4px}
+.checks{display:grid;gap:2px;margin:6px 0}
+.checks .check{display:flex;gap:8px;align-items:center;padding:8px 0;font-size:14px}
+.checks .dot{width:10px;height:10px;border-radius:50%;flex:none}

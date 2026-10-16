@@ -63,6 +63,16 @@ Version 2.7, octobre 2026. Auteur : Prince Quenauld Christian EKOUYA.
 
 **Mise à jour depuis la V2.6** : rien à faire côté Supabase.
 
+## 1 sexies. Nouveautés de la V2.8
+
+- **Ma situation** (Réglages) : statut, logement, déplacements, personnes à charge. Les budgets proposés ne réservent plus rien pour ce que tu ne paies pas (loyer si tu es hébergé, transport si tes trajets sont pris en charge). Tes dépenses réelles passent toujours avant tes réponses. Guide : `docs/situation.md`.
+- **Démarrage guidé en 4 étapes**, adapté au statut : indemnité pour un stagiaire, revenus irréguliers pour un indépendant, pension pour un retraité.
+- **Fin de stage ou de contrat** : alerte sur l'accueil avec le nombre de mois que couvre ton argent, et conseil de fonds d'urgence à 6 mois pour un revenu instable.
+- **Nouvelles lignes de budget** : soins du corps, sport et activités, abonnements en ligne, proposées d'après tes montants réels.
+- **Types d'entrées plus variés**, en trois familles : revenus de travail, revenus de capital, prestations et dons.
+
+**Mise à jour depuis la V2.7** : rien à faire côté Supabase.
+
 ## 2. Architecture
 
 ```mermaid

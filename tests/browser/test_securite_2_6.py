@@ -80,7 +80,8 @@ async def main():
         # démarrage guidé : charge piégée tapée par l'utilisateur dans chaque champ, aller-retour entre les étapes
         await page.evaluate("startOnb()"); await page.wait_for_timeout(300)
         check('S5 guide ouvert', await page.is_visible('#onb'))
-        # le carnet de test a déjà des soldes de départ : le guide commence à l'étape 2
+        # le carnet de test a déjà des soldes de départ : le guide commence par la situation (étape 1), puis saute les soldes
+        await page.click('[data-act=onbNext]'); await page.wait_for_timeout(250)
         await page.fill('#ob-day', '5')
         await page.click('[data-act=onbNext]'); await page.wait_for_timeout(200)
         for i in range(3):

@@ -43,20 +43,19 @@ const CATS=[
   ["alimentation","Alimentation","#067C3A"],["transport","Transport","#1570EF"],["logement","Logement","#04382A"],
   ["factures","Factures (eau, élec., internet)","#F5C04A"],["communication","Crédit & data","#3FAE75"],["sante","Santé","#B45309"],
   ["famille","Famille & dons","#93340A"],["loisirs","Loisirs & sorties","#CD8309"],["vetements","Vêtements","#4C5D54"],
-  ["education","Éducation","#7CC79C"],["autres","Autres","#9AA8A1"]
+  ["education","Éducation","#7CC79C"],["soins","Soins du corps","#DB2777"],["sport","Sport et activités","#0891B2"],["abonnements","Abonnements en ligne","#7C3AED"],["autres","Autres","#9AA8A1"]
 ];
 const dict=o=>Object.assign(Object.create(null),o);
 const CAT=dict(Object.fromEntries(CATS.map(c=>[c[0],{label:c[1],color:c[2]}])));
 CAT.frais={label:'Frais financiers',color:'#64756C'};
 const NEED=new Set(['alimentation','transport','logement','factures','communication','sante','education','frais']);
-// Catégories : 11 de base (renommables) plus les tiennes, stockées dans settings.opening.__cats
+// Catégories : 14 de base (renommables) plus les tiennes, stockées dans settings.opening.__cats
 const BASE_CATS=CATS.map(c=>c.slice()), NEED_BASE=new Set(NEED);
 const CCOLORS=['#067C3A','#1570EF','#04382A','#F5C04A','#3FAE75','#B45309','#93340A','#CD8309','#4C5D54','#7CC79C','#9AA8A1','#7C3AED','#DB2777','#0891B2'];
 const CAT_MAX=20;
 const CAT_PRESETS=[
   {label:'Dîme et offrandes',color:'#7C3AED',need:false,words:['dime','offrande','quete','eglise']},
   {label:'Solidarité (deuil, mariage)',color:'#DB2777',need:false,words:['deuil','mariage','bapteme','veillee','solidarite','dot']},
-  {label:'Coiffure et beauté',color:'#0891B2',need:false,words:['coiffure','tresse','tissage','salon','manucure','perruque']},
   {label:'Scolarité des enfants',color:'#1570EF',need:true,words:['scolarite','cantine','uniforme','fournitures','inscription']},
   {label:'Groupe électrogène',color:'#B45309',need:true,words:['groupe','generateur','mazout']}
 ];
@@ -66,8 +65,17 @@ const BASE_WALLETS=[["especes","Espèces","#067C3A","cash"],["mtn","MTN MoMo","#
 const WKIND={cash:'Liquide',momo:'Mobile Money',bank:'Compte ou carte',card:'Carte prépayée',other:'Autre'};
 const WSUB={cash:'liquide',momo:'Mobile Money',bank:'compte et carte',card:'carte prépayée',other:'portefeuille',savings:''};
 const WALLETS=[], WAL=Object.create(null), METHODS=[], MOMO=new Set(), CARD=new Set();
-const SOURCES=[["salaire","Salaire","#04382A"],["prime","Prime","#3FAE75"],["mission","Mission / freelance","#F5C04A"],["autre","Autre","#9AA8A1"]];
-const SRC=dict(Object.fromEntries(SOURCES.map(s=>[s[0],{label:s[1],color:s[2]}])));
+// Types d'entrées, rangés en trois familles (le texte libre côté serveur n'impose aucune liste : rien à migrer)
+const SOURCE_FAMILIES=[["travail","Revenus de travail"],["capital","Revenus de capital"],["social","Prestations et dons"],["autre","Autre"]];
+const SOURCES=[
+  ["salaire","Salaire","#04382A","travail"],["prime","Primes et commissions","#3FAE75","travail"],["mission","Honoraires et missions","#F5C04A","travail"],["pourboire","Pourboires","#CD8309","travail"],["stage","Indemnité de stage","#067C3A","travail"],
+  ["locatif","Revenus locatifs","#1570EF","capital"],["dividende","Dividendes","#7C3AED","capital"],["interet","Intérêts","#0891B2","capital"],
+  ["pension","Pension","#93340A","social"],["indemnite","Indemnisation (chômage, assurance)","#B45309","social"],["aide","Allocations et aides","#DB2777","social"],["don","Dons et cadeaux","#4C5D54","social"],
+  ["autre","Autre","#9AA8A1","autre"]
+];
+const SRC=dict(Object.fromEntries(SOURCES.map(s=>[s[0],{label:s[1],color:s[2],fam:s[3]}])));
+// Entrées qui rythment le cycle de paie : salaire, indemnité de stage, pension
+const PAY_SRC=new Set(['salaire','stage','pension']);
 const MOVES=dict({
   transfer:{label:'Transfert entre portefeuilles',from:true,to:true},
   tontine_out:{label:'Cotisation tontine',from:true,plan:'tontine'},
@@ -125,7 +133,7 @@ const HAS_WEBAUTHN=!!(window.PublicKeyCredential&&navigator.credentials);
 const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 
 /* ---------- État ---------- */
-const APP_VERSION='2.7.0';
+const APP_VERSION='2.8.0';
 const K={push:'cd2-push',remSig:'cd2-remsig',testId:'cd2-testid',bkAt:'cd2-bk-at',bkSig:'cd2-bk-sig',bkErr:'cd2-bk-err',fileBk:'cd2-file-bk',bkSnooze:'cd2-bk-snooze',firstUse:'cd2-first-use',synclog:'cd2-synclog',lastOk:'cd2-last-ok',remember:'cd2-remember',passkey:'cd2-passkey',lock:'cd2-lock',hiddenAt:'cd2-hidden-at',cache:'cd2-cache',outbox:'cd2-outbox',uid:'cd2-uid',email:'cd2-email',tab:'cd2-tab',met:'cd2-met',bilan:'cd2-bilan-vu',span:'cd2-span',rej:'cd2-rejected',errq:'cd2-errq',favOff:'cd2-fav-off',scope:'cd2-scope',onbSnooze:'cd2-onb-snooze',planView:'cd2-planview'};
 const DEF_SETTINGS={savings_goal:0,opening:{},opening_date:null,emergency_months:3,inflation:4};
 const EMPTY=()=>({expenses:{},incomes:{},budgets:{},recurring:{},moves:{},plans:{},settings:Object.assign({},DEF_SETTINGS)});
@@ -621,7 +629,7 @@ function openSubForm(id,preset){
   const px=r?(cur?subPriceNow(r):r.amount):(P.amount>0?P.amount:''), date=r?(nx?nx.date:t):(isoOk(P.date)?P.date:t);
   const cardW=WALLETS.find(w=>w[3]==='card'&&inScope(!!WAL[w[0]]?.pro));
   const met=r?r.method:(P.method&&WAL[P.method]&&!WAL[P.method].archived&&P.method!=='epargne'?P.method:(cardW?cardW[0]:lastMet()));
-  const cat=r?r.category:(CAT[P.category]&&!CAT[P.category].archived?P.category:(CAT.loisirs?'loisirs':'autres'));
+  const cat=r?r.category:(CAT[P.category]&&!CAT[P.category].archived?P.category:(CAT.abonnements&&!CAT.abonnements.archived?'abonnements':CAT.loisirs?'loisirs':'autres'));
   S.subEdit=r?r.id:'new';S.subOrig=r?date:'';
   const o=(v,l,sel)=>`<option value="${esc(v)}" ${sel?'selected':''}>${esc(l)}</option>`;
   const metOpts=METHODS.map(([k,l])=>o(k,l,k===met)).join('')+(!METHODS.some(x=>x[0]===met)&&WAL[met]?o(met,WAL[met].label+' (archivé)',true):'');
@@ -737,17 +745,57 @@ const INS_BZV={alimentation:44.4,logfac:9.7,transport:10.0,communication:6.7,vet
 const PRICES={bus:150,taxi:1000,kwh:49.08,fibre:15000};
 const r500=n=>Math.round(n/500)*500;
 const lin=(x,x0,x1,y0,y1)=>x<=x0?y0:x>=x1?y1:y0+(x-x0)/(x1-x0)*(y1-y0);
+/* ---------- V2.8 : ta situation (statut, logement, transport, personnes à charge) ----------
+   Stockée dans settings.opening.__profil, sans colonne nouvelle. Elle décide de ce que le carnet propose :
+   pas de budget pour un poste que tu ne paies pas. Tes dépenses réelles passent toujours avant les réponses. */
+const PROF_ST=[['stagiaire','Stagiaire ou étudiant'],['cdd','Salarié en CDD'],['cdi','Salarié en CDI ou fonctionnaire'],['indep','Indépendant, commerçant, freelance'],['retraite','Retraité'],['sans','Sans revenu régulier']];
+const PROF_LG=[['loc','Je loue mon logement'],['prop','Je suis propriétaire'],['heb','Je suis hébergé, sans loyer']];
+const PROF_TR=[['public','Taxi et bus'],['moto','Moto'],['voiture','Voiture'],['pied','À pied ou trajet pris en charge']];
+const PROF_CH=[[0,'Aucune'],[1,'1 ou 2'],[3,'3 ou plus']];
+const NEWCATS=['soins','sport','abonnements'];
+function cleanProfil(v){
+  const o={};if(!v||typeof v!=='object'||Array.isArray(v))return o;
+  const pick=(k,list)=>{if(typeof v[k]==='string'&&list.some(x=>x[0]===v[k]))o[k]=v[k]};
+  pick('st',PROF_ST);pick('lg',PROF_LG);pick('tr',PROF_TR);
+  if(typeof v.ch==='number'&&[0,1,3].includes(v.ch))o.ch=v.ch;
+  if(isoOk(v.fin))o.fin=v.fin;
+  if(v.pay&&typeof v.pay==='object'&&!Array.isArray(v.pay)){const pay={};let n=0;for(const [c,b] of Object.entries(v.pay)){if(n>=40)break;if(SAFE_ID(c)&&typeof b==='boolean'){pay[c]=b;n++}}if(n)o.pay=pay}
+  return o;
+}
+const profNow=()=>cleanProfil((D.settings.opening||{}).__profil);
+// Une catégorie « vue » : des dépenses dans les 90 derniers jours ou une charge régulière active
+const catSeen=c=>{const from=addDays(todayISO(),-90);return expenses().some(e=>e.category===c&&e.date>=from)||Object.values(D.recurring).some(r=>r.active&&r.category===c)};
+// Réponse par défaut pour un poste, d'après la situation et l'historique (jamais contre des dépenses réelles)
+function profAuto(c,p){
+  p=p||profNow();
+  if(c==='logement')return p.lg==='heb'||p.lg==='prop'?catSeen(c):true;
+  if(c==='transport')return p.tr==='pied'?catSeen(c):true;
+  if(c==='education')return p.ch===0&&p.st!=='stagiaire'?catSeen(c):true;
+  if(NEWCATS.includes(c))return catSeen(c);
+  return true;
+}
+const catPays=c=>{const p=profNow();return p.pay&&typeof p.pay[c]==='boolean'?p.pay[c]:profAuto(c,p)};
+const catFixed=c=>sumBy(Object.values(D.recurring).filter(r=>r.active&&r.category===c),subMonthly);
+// Budget proposé : structure de consommation de Brazzaville (INS, 2011) ajustée aux revenus, limitée aux postes que tu paies.
+// La part des postes écartés est répartie sur les autres. Les lignes sans repère national (soins, sport, abonnements) partent de tes montants réels.
 function proposal(R){
-  const k=R/SMIG, sh={};
-  sh.alimentation=lin(k,2,6,44,30);
+  const k=R/SMIG, sh={}, on=c=>!CAT[c]||CAT[c].archived?false:catPays(c);
+  sh.alimentation=on('alimentation')?lin(k,2,6,44,30):0;
   const save=lin(k,1.5,5,0,15);
-  sh.logement=lin(k,1,3,15,20);sh.factures=5;
-  const rest=100-sh.alimentation-save-sh.logement-sh.factures;
-  const W={transport:10,communication:6.7,vetements:6.9,loisirs:7.6,famille:5,sante:2.4,education:2.9,autres:4.3};
+  sh.logement=on('logement')?lin(k,1,3,15,20):0;sh.factures=on('factures')?5:0;
+  const known={};let kn=0;
+  for(const c of NEWCATS){if(!on(c))continue;const a=Math.max(ownAvg(c),catFixed(c));if(a>0){known[c]=Math.min(a,R*.15);kn+=known[c]/R*100}}
+  const rest=Math.max(0,100-sh.alimentation-save-sh.logement-sh.factures-kn);
+  const W0={transport:10,communication:6.7,vetements:6.9,loisirs:7.6,famille:5,sante:2.4,education:2.9,autres:4.3}, W={};
+  for(const c in W0)if(c==='autres'||on(c))W[c]=W0[c];
   const tw=Object.values(W).reduce((a,b)=>a+b,0);
   for(const c in W)sh[c]=W[c]*rest/tw;
-  const amt={};for(const c in sh)amt[c]=r500(R*sh[c]/100);
-  return {k,save,saveAmt:r500(R*save/100),sh,amt};
+  for(const c in known)sh[c]=known[c]/R*100;
+  const amt={}, off=[];
+  for(const c of ['alimentation','logement','factures','transport','communication','sante','famille','loisirs','vetements','education','soins','sport','abonnements','autres']){
+    if(sh[c]>0)amt[c]=r500(R*sh[c]/100);else if(CAT[c]&&!CAT[c].archived&&c!=='autres'&&!NEWCATS.includes(c))off.push(c)}
+  const idle=NEWCATS.filter(c=>amt[c]===undefined&&CAT[c]&&!CAT[c].archived);
+  return {k,save,saveAmt:r500(R*save/100),sh,amt,off,idle,known:Object.keys(known)};
 }
 const savingsGoal=m=>D.settings.savings_goal||(incomeIn(m)?proposal(incomeIn(m)).saveAmt:0);
 
@@ -789,7 +837,7 @@ function dayBudget(m){
 /* ---------- Cycle de paie et salaire en retard ---------- */
 const cfgCycle=()=>{const c=(D.settings.opening||{}).__cycle;return c&&typeof c==='object'?c:{}};
 const payDay=()=>{const d=Math.round(Number(cfgCycle().day));return d>=1&&d<=28?d:0};
-const lastSalary=()=>{let b=null;for(const e of incomes())if(e.source==='salaire'&&(!b||e.date>b.date))b=e;return b};
+const lastSalary=()=>{let b=null;for(const e of incomes())if(PAY_SRC.has(e.source)&&(!b||e.date>b.date))b=e;return b};
 const liquid=()=>sumBy(scopedWallets().filter(w=>w[0]!=='epargne'),([w])=>balance(w));
 // Prochaine paie attendue = prochain jour de paie au moins 15 jours après le dernier salaire noté
 function payInfo(){
@@ -845,6 +893,58 @@ function hzChoice(P){
     <div class="hzseg set" role="group" aria-label="Période du budget du jour">${opt.map(([k,l,n])=>`<button type="button" data-hz="${k}" aria-pressed="${pref===k}">${l}<small>${n}</small></button>`).join('')}</div>
     ${P.late?'<p class="hint">Ton salaire est en retard : en attendant, le calcul va jusqu\'à la fin du mois.</p>':''}`;
 }
+// Questions de situation : réutilisées dans le démarrage guidé (préfixe ob-) et dans Réglages (préfixe pf-)
+const profSel=(id,label,list,val)=>`<label class="inp">${esc(label)}<select id="${id}"><option value="">Je préfère ne pas préciser</option>${list.map(([v,l])=>`<option value="${esc(v)}" ${val!==undefined&&String(val)===String(v)?'selected':''}>${esc(l)}</option>`).join('')}</select></label>`;
+const finLabel=st=>(st==='cdd'?'Fin du contrat':'Fin du stage')+' (facultatif)';
+function profFields(px,p){
+  return profSel(px+'st','Ma situation',PROF_ST,p.st)+profSel(px+'lg','Mon logement',PROF_LG,p.lg)+profSel(px+'tr','Mes déplacements',PROF_TR,p.tr)+profSel(px+'ch','Personnes à ma charge (enfants, famille)',PROF_CH,p.ch)
+    +`<label class="inp" id="${px}fin-row" ${['stagiaire','cdd'].includes(p.st)?'':'hidden'}><span id="${px}fin-lg">${esc(finLabel(p.st))}</span><input type="date" id="${px}fin" value="${esc(p.fin||'')}"></label>`;
+}
+function profRead(px){
+  const g=id=>{const e=$(px+id);return e?e.value:''}, o={};
+  if(g('st'))o.st=g('st');if(g('lg'))o.lg=g('lg');if(g('tr'))o.tr=g('tr');if(g('ch')!=='')o.ch=Number(g('ch'));
+  if(['stagiaire','cdd'].includes(o.st)&&g('fin'))o.fin=g('fin');
+  return cleanProfil(o);
+}
+function profNote(p){
+  const off=['logement','transport','education'].filter(c=>CAT[c]&&!profAuto(c,p));
+  return off.length?`Le carnet ne proposera pas de budget pour : ${off.map(c=>esc(CAT[c].label)).join(', ')}.`:'Le carnet proposera un budget pour tous les postes habituels.';
+}
+// Les réponses changent les cases « Postes que je paie » qui n'ont pas été touchées à la main
+function profSync(px){
+  const p=profRead(px), row=$(px+'fin-row');
+  if(row){row.hidden=!['stagiaire','cdd'].includes(p.st);const lg=$(px+'fin-lg');if(lg)lg.textContent=finLabel(p.st)}
+  const nt=$(px+'note');if(nt)nt.innerHTML=profNote(p);
+  document.querySelectorAll('[data-paycat]').forEach(b=>{const a=profAuto(b.dataset.paycat,p);if(b.checked===(b.dataset.auto==='1'))b.checked=a;b.dataset.auto=a?'1':'0'});
+}
+function profilSettings(){
+  const p=profNow(), unstable=['stagiaire','cdd','indep','sans'].includes(p.st)&&(D.settings.emergency_months||3)<6;
+  const rows=CATS.filter(([c])=>c!=='autres').map(([c,l,col])=>`<label class="check"><input type="checkbox" data-paycat="${esc(c)}" data-auto="${profAuto(c,p)?1:0}" ${catPays(c)?'checked':''}> <span class="dot" style="background:${esc(col)}"></span> ${esc(l)}</label>`).join('');
+  return `<section class="block" id="profil"><p class="over">Ma situation</p><p class="hint">Quelques réponses pour que les budgets, les conseils et les alertes collent à ta vie réelle. Tes dépenses notées passent toujours avant ces réponses.</p>
+    ${profFields('pf-',p)}
+    <p class="hint" id="pf-note">${profNote(p)}</p>
+    <details data-keep="pfopen" ${S.pfopen?'open':''}><summary class="linkbtn">Postes que je paie</summary><p class="hint">Décoche ce que tu ne paies pas : le carnet ne te proposera pas de budget pour ces postes. Soins du corps, sport et abonnements en ligne apparaissent dès que tu y notes des dépenses.</p><div class="checks">${rows}</div></details>
+    ${unstable?`<p class="hint">Ton revenu peut s'interrompre : on conseille de viser 6 mois de dépenses essentielles. <button type="button" class="linkbtn" data-act="emSix">Régler à 6 mois</button></p>`:''}
+    <div class="actions"><button type="button" class="btn-primary" data-act="saveProfil">Enregistrer</button></div></section>`;
+}
+function saveProfil(){
+  const np=profRead('pf-');
+  if(np.fin&&np.fin<todayISO())return toast('La date de fin doit être aujourd\'hui ou plus tard');
+  const pay={};document.querySelectorAll('[data-paycat]').forEach(b=>{const c=b.dataset.paycat;if(SAFE_ID(c)&&b.checked!==profAuto(c,np))pay[c]=b.checked});
+  if(Object.keys(pay).length)np.pay=pay;
+  const op=Object.assign({},D.settings.opening);
+  if(Object.keys(np).length)op.__profil=np;else delete op.__profil;
+  mutate([settingsRow({opening:op})]);toast('Situation enregistrée');
+}
+const goProfil=()=>{if(S.tab!=='settings')bkList=null;S.tab='settings';LS.set(K.tab,'settings');render();setTimeout(()=>{const e=$('profil');if(e)e.scrollIntoView()},60)};
+const emSix=()=>{mutate([settingsRow({emergency_months:6})]);toast('Fonds d\'urgence visé : 6 mois')};
+// Fin de stage ou de contrat proche : combien de mois l'argent disponible tient-il ?
+function profilAlertBlock(){
+  const p=profNow();if(!p.fin||!['stagiaire','cdd'].includes(p.st))return '';
+  const d=daysBetween(todayISO(),p.fin);if(d<0||d>90)return '';
+  const E=emergency(), mo=E.avg>0?liquid()/E.avg:null;
+  return msg(d<=30?'warning':'info',p.st==='cdd'?'Fin de contrat proche':'Fin de stage proche',`${d===0?'C\'est aujourd\'hui':'Dans '+d+' jour'+(d>1?'s':'')}, le ${esc(dLong(p.fin))}. ${mo!=null?`Ton argent disponible couvre environ ${mo.toFixed(1).replace('.',',')} mois de dépenses essentielles. `:''}Prépare de quoi tenir jusqu'à ton prochain revenu.`);
+}
 function cycleSettings(){
   const P=payInfo(), d=payDay();
   return `<section class="block"><p class="over">Salaire et cycle de paie</p><p class="hint">Indique ton jour de paie habituel. Le carnet calcule combien de jours tu tiens avec tes liquidités, et ce qu'il te reste par jour si le salaire tarde.</p>
@@ -863,7 +963,7 @@ function emergency(){
   const months=[];for(let i=1;i<=3;i++){const m=shiftM(curM(),-i);const it=monthItems(m);if(it.length)months.push(sumBy(it.filter(e=>natureOf(e)==='besoin'),spend))}
   let avg=months.length?sumBy(months,x=>x)/months.length:0;
   if(!avg){const it=monthItems(curM());const d=new Date().getDate();avg=sumBy(it.filter(e=>natureOf(e)==='besoin'),spend)/d*daysIn(curM())}
-  if(!avg&&incomeIn(curM())){const P=proposal(incomeIn(curM()));avg=['alimentation','logement','factures','transport','communication','sante','education'].reduce((t,c)=>t+P.amt[c],0)}
+  if(!avg&&incomeIn(curM())){const P=proposal(incomeIn(curM()));avg=['alimentation','logement','factures','transport','communication','sante','education'].reduce((t,c)=>t+(P.amt[c]||0),0)}
   const fund=Math.max(0,balance('epargne')-projectsSaved()), target=avg*(D.settings.emergency_months||3);
   return {avg,fund,target,covered:avg?fund/avg:0,ratio:target?fund/target:0};
 }
@@ -901,7 +1001,10 @@ const KEYWORDS={
   education:['ecole','scolarite','frais scolaires','universite','livre','fourniture','inscription','cours'],
   loisirs:['restaurant','resto','bar','sortie','cinema','boite','match','concert','biere','glace'],
   vetements:['habit','chaussure','pagne','tailleur','vetement','robe','chemise','pantalon'],
-  famille:['famille','maman','papa','deuil','mariage','bapteme','don','eglise','offrande','dime','anniversaire']
+  famille:['famille','maman','papa','deuil','mariage','bapteme','don','eglise','offrande','dime','anniversaire'],
+  soins:['coiffure','coiffeur','tresse','tissage','salon','manucure','pedicure','parfum','pommade','creme','cosmetique','maquillage','perruque','barbier'],
+  sport:['salle de sport','gym','fitness','foot','football','tennis','basket','piscine','natation','musculation','yoga','karate'],
+  abonnements:['netflix','spotify','youtube','icloud','google one','chatgpt','openai','claude','disney','prime video','amazon prime','apple music','apple tv','deezer','dropbox','canva','showmax','starzplay','cloud','abonnement']
 };
 function guessCategory(note){
   const n=norm(note);if(n.length<3)return null;
@@ -1085,7 +1188,7 @@ function heroNow(){
   // Dépensé aujourd'hui hors charges récurrentes (elles sont déjà dans les sorties prévues) : le budget du jour reste stable dans la journée
   const vt=sumBy(expenses().filter(e=>e.date===t&&!e.recurring_id&&inScope(isProExp(e))),spend);
   const raw=(cash+vt-plan)/sel.n, budget=Math.max(0,raw), left=budget-vt;
-  const note=H.pay?'':H.late?'Ton salaire est en retard : le calcul va jusqu\'à la fin du mois.':H.hasDay?'':'<button type="button" class="linkbtn" data-tab="settings">Indique ton jour de paie pour calculer jusqu\'à la prochaine paie</button>';
+  const note=H.pay?'':H.late?'Ton salaire est en retard : le calcul va jusqu\'à la fin du mois.':H.hasDay?'':(['indep','sans'].includes(profNow().st)?'Tes revenus sont irréguliers : le calcul va jusqu\'à la fin du mois.':'<button type="button" class="linkbtn" data-tab="settings">Indique ton jour de paie pour calculer jusqu\'à la prochaine paie</button>');
   const ndWhen=nd?(nd.late?'en retard de '+nd.late+' jour'+(nd.late>1?'s':''):nd.date===t?'aujourd\'hui':(daysBetween(t,nd.date)===1?'demain':'dans '+daysBetween(t,nd.date)+' jours')+' · '+dShort(nd.date)):'';
   const ndHtml=nd?`<div class="nd"><span class="t"><span>${esc(nd.label)}</span><span>${esc(ndWhen)}</span></span><b class="num">${fmt(nd.amount)}</b></div>`:'<p class="sub">Aucune sortie prévue sur les 30 prochains jours.</p>';
   const head=`<div class="block-head"><p class="over">Argent disponible${esc(sc)}</p>${eyeBtn()}</div>
@@ -1232,69 +1335,91 @@ const onbDone=()=>!!(((D.settings.opening||{}).__start)||{}).done;
 const needsOnb=()=>lastSync>0&&!onbDone()&&!D.settings.opening_date&&!expenses().length&&!incomes().length&&!Object.keys(D.recurring).length&&LS.get(K.onbSnooze,'')<todayISO();
 let onb=null;
 function maybeOnboard(){if(onb||!needsOnb()||$('app').hidden||!$('sheetWrap').hidden||!$('dlgWrap').hidden)return;startOnb()}
-function startOnb(){onb={step:D.settings.opening_date?2:1,min:D.settings.opening_date?2:1,w:{},day:String(payDay()||''),sal:0,sald:'',salw:'banque',rows:[{},{},{}],err:''};paintOnb()}
+// Le guide s'adapte à la situation : le revenu, le jour de paie et les charges proposées ne sont pas les mêmes pour un stagiaire, un salarié en CDD ou un indépendant
+const REV_DEF={h:'Ton revenu',hint:"Le jour de paie permet de calculer ce que tu peux dépenser jusqu'à ta prochaine paie.",last:'Dernier salaire reçu (facultatif)',src:'salaire'};
+const REV={
+  stagiaire:{h:'Ton indemnité ou ton allocation',hint:"Indemnité de stage, bourse ou argent reçu à date fixe : indique le jour. Sinon laisse vide.",last:'Dernier versement reçu (facultatif)',src:'stage'},
+  indep:{h:'Tes revenus',hint:"Tes revenus varient : le carnet calcule ton budget du jour jusqu'à la fin du mois. Indique un jour seulement si un client te paie à date fixe.",last:'Dernier encaissement (facultatif)',src:'mission'},
+  retraite:{h:'Ta pension',hint:"Indique le jour où ta pension est versée. Le carnet calcule ce que tu peux dépenser jusqu'au prochain versement.",last:'Dernière pension reçue (facultatif)',src:'pension'},
+  sans:{h:'Tes ressources',hint:"Aide de la famille, allocation ou petit revenu : indique le jour si c'est à date fixe. Sinon laisse vide.",last:'Dernier versement reçu (facultatif)',src:'aide'}
+};
+const revTxt=st=>REV[st]||REV_DEF;
+function startOnb(){
+  const hasBal=!!D.settings.opening_date, hasProf=Object.keys(profNow()).length>0, first=hasProf?(hasBal?3:2):1;
+  onb={step:first,min:first,skipW:hasBal,pf:profNow(),w:{},day:String(payDay()||''),sal:0,sald:'',salw:'banque',rows:[{},{},{}],err:''};paintOnb();
+}
 const dayErr=v=>{const d=toInt(v);return !(d>=1&&d<=28)};
 function paintOnb(){
   const el=$('onb'), o=onb;
   if(!o){el.hidden=true;el.innerHTML='';if($('sheetWrap').hidden&&$('dlgWrap').hidden)document.documentElement.classList.remove('modal');return}
   el.hidden=false;document.documentElement.classList.add('modal');
-  const maxD=addDays(D.settings.opening_date||todayISO(),-1), step=o.step;
+  const maxD=addDays(D.settings.opening_date||todayISO(),-1), step=o.step, pf=o.pf||{}, rv=revTxt(pf.st);
   let body='', nextTxt='Continuer';
-  if(step===1)body=`<h2>Ton argent aujourd'hui</h2><p class="hint">Indique ce que contient chaque portefeuille à l'instant. Laisse vide ou mets 0 s'il est vide. Le carnet part de ces chiffres.</p>
+  if(step===1)body=`<h2>Ta situation</h2><p class="hint">Quatre réponses pour adapter le carnet à ta vie : budgets, conseils et alertes. Tu peux passer une question et tout changer plus tard dans Réglages.</p>
+    ${profFields('ob-',pf)}<p class="hint" id="ob-note">${profNote(pf)}</p>`;
+  else if(step===2)body=`<h2>Ton argent aujourd'hui</h2><p class="hint">Indique ce que contient chaque portefeuille à l'instant. Laisse vide ou mets 0 s'il est vide. Le carnet part de ces chiffres.</p>
     ${WALLETS.map(([w,l])=>`<div class="form-row"><span>${esc(l)}</span><label class="field"><input class="r" id="ob-w-${esc(w)}" data-money inputmode="numeric" placeholder="0" value="${o.w[w]?group(o.w[w]):''}" aria-label="Solde ${esc(l)}"><span>FCFA</span></label></div>`).join('')}`;
-  else if(step===2)body=`<h2>Ton revenu</h2><p class="hint">Le jour de paie permet de calculer ce que tu peux dépenser jusqu'à ta prochaine paie.</p>
+  else if(step===3)body=`<h2>${esc(rv.h)}</h2><p class="hint">${esc(rv.hint)}</p>
     <div class="form-row"><span>Jour de paie habituel<span class="meta" style="display:block">de 1 à 28, vide si irrégulier</span></span><label class="field"><input class="r" id="ob-day" inputmode="numeric" maxlength="2" value="${esc(o.day)}" placeholder="-" aria-label="Jour de paie"><span>du mois</span></label></div>
-    <p class="over" style="margin-top:8px">Dernier salaire reçu (facultatif)</p>
+    <p class="over" style="margin-top:8px">${esc(rv.last)}</p>
     <div class="grid2"><label class="inp">Montant (FCFA)<input id="ob-sal" data-money inputmode="numeric" placeholder="0" value="${o.sal?group(o.sal):''}"></label><label class="inp">Reçu le<input type="date" id="ob-sal-d" max="${maxD}" value="${esc(o.sald)}"></label></div>
     <label class="inp">Reçu sur<select id="ob-sal-w">${WALLETS.filter(w=>w[0]!=='epargne').map(([w,l])=>`<option value="${esc(w)}" ${o.salw===w?'selected':''}>${esc(l)}</option>`).join('')}</select></label>
-    <p class="hint">Choisis une date avant aujourd'hui : ce salaire est déjà compris dans l'argent indiqué à l'étape précédente.</p>`;
-  else if(step===3)body=`<h2>Tes charges fixes</h2><p class="hint">Loyer, électricité, internet, abonnements : le carnet te rappelle de les payer et réserve la somme. Trois au plus ici, les autres plus tard dans Réglages. Tu peux passer cette étape.</p>
-    ${[0,1,2].map(i=>{const r=o.rows[i]||{};return `<div class="add"><div class="grid2"><label class="inp">Libellé<input id="ob-rl-${i}" maxlength="60" placeholder="${['Loyer','Électricité','Internet'][i]}" value="${esc(r.label||'')}"></label><label class="inp">Montant (FCFA)<input id="ob-ra-${i}" data-money inputmode="numeric" placeholder="0" value="${r.amount?group(r.amount):''}"></label></div>
-      <div class="grid2"><label class="inp">Jour du mois (1 à 28)<input id="ob-rd-${i}" inputmode="numeric" maxlength="2" placeholder="5" value="${esc(r.day||'')}"></label><label style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" id="ob-rp-${i}" ${r.paid?'checked':''}> Déjà payé ce mois-ci</label></div></div>`}).join('')}`;
+    <p class="hint">Choisis une date avant aujourd'hui : ce montant est déjà compris dans l'argent indiqué à l'étape précédente.</p>`;
+  else if(step===4){const ph=pf.lg==='loc'||!pf.lg?['Loyer','Électricité','Internet']:['Électricité','Internet','Eau'];
+    body=`<h2>Tes charges fixes</h2><p class="hint">${pf.lg==='loc'||!pf.lg?'Loyer, électricité, internet':'Électricité, internet, eau'}, abonnements : le carnet te rappelle de les payer et réserve la somme. Trois au plus ici, les autres plus tard dans Réglages. Tu peux passer cette étape.</p>
+    ${[0,1,2].map(i=>{const r=o.rows[i]||{};return `<div class="add"><div class="grid2"><label class="inp">Libellé<input id="ob-rl-${i}" maxlength="60" placeholder="${esc(ph[i])}" value="${esc(r.label||'')}"></label><label class="inp">Montant (FCFA)<input id="ob-ra-${i}" data-money inputmode="numeric" placeholder="0" value="${r.amount?group(r.amount):''}"></label></div>
+      <div class="grid2"><label class="inp">Jour du mois (1 à 28)<input id="ob-rd-${i}" inputmode="numeric" maxlength="2" placeholder="5" value="${esc(r.day||'')}"></label><label style="display:flex;gap:8px;align-items:center;font-size:14px"><input type="checkbox" id="ob-rp-${i}" ${r.paid?'checked':''}> Déjà payé ce mois-ci</label></div></div>`}).join('')}`}
   else{body=`<h2>Tout est prêt</h2><p class="hint">Le plus important maintenant : note ta première dépense. Chaque dépense notée rend les calculs plus justes.</p><div class="actions"><button type="button" class="btn-primary" data-act="onbFirst">Noter ma première dépense</button></div>`;nextTxt='Terminer'}
-  el.innerHTML=`<div class="onb-card" role="dialog" aria-modal="true" aria-label="Démarrage guidé"><div class="onb-top"><span class="over">${step<=3?'Étape '+step+' sur 3':'Démarrage guidé'}</span><div class="onb-dots">${[1,2,3,4].map(i=>`<i class="${i<=step?'on':''}"></i>`).join('')}</div></div>
+  el.innerHTML=`<div class="onb-card" role="dialog" aria-modal="true" aria-label="Démarrage guidé"><div class="onb-top"><span class="over">${step<=4?'Étape '+step+' sur 4':'Démarrage guidé'}</span><div class="onb-dots">${[1,2,3,4,5].map(i=>`<i class="${i<=step?'on':''}"></i>`).join('')}</div></div>
     ${body}<p class="err" id="ob-err" ${o.err?'':'hidden'}>${esc(o.err)}</p>
-    <div class="sheet-actions">${step>o.min&&step<4?`<button type="button" class="btn" data-act="onbBack">Retour</button>`:''}<button type="button" class="btn-primary" data-act="onbNext">${nextTxt}</button></div>
+    <div class="sheet-actions">${step>o.min&&step<5?`<button type="button" class="btn" data-act="onbBack">Retour</button>`:''}<button type="button" class="btn-primary" data-act="onbNext">${nextTxt}</button></div>
     <div class="row-between" style="justify-content:center;gap:20px"><button type="button" class="linkbtn" data-act="onbLater">Plus tard</button><button type="button" class="linkbtn" data-act="onbSkip">Passer le guide</button></div></div>`;
   el.scrollTop=0;
 }
 function onbRead(){
   const o=onb;if(!o)return;
-  if(o.step===1){o.w={};WALLETS.forEach(([w])=>{const e=$('ob-w-'+w);o.w[w]=e?toInt(e.value):0})}
-  else if(o.step===2){o.day=$('ob-day').value.trim();o.sal=toInt($('ob-sal').value);o.sald=$('ob-sal-d').value;o.salw=$('ob-sal-w').value}
-  else if(o.step===3)o.rows=[0,1,2].map(i=>({label:$('ob-rl-'+i).value.trim().slice(0,60),amount:toInt($('ob-ra-'+i).value),day:$('ob-rd-'+i).value.trim(),paid:$('ob-rp-'+i).checked}));
+  if(o.step===1){const keep=o.pf&&o.pf.pay?{pay:o.pf.pay}:{};o.pf=cleanProfil(Object.assign(profRead('ob-'),keep))}
+  else if(o.step===2){o.w={};WALLETS.forEach(([w])=>{const e=$('ob-w-'+w);o.w[w]=e?toInt(e.value):0})}
+  else if(o.step===3){o.day=$('ob-day').value.trim();o.sal=toInt($('ob-sal').value);o.sald=$('ob-sal-d').value;o.salw=$('ob-sal-w').value}
+  else if(o.step===4)o.rows=[0,1,2].map(i=>({label:$('ob-rl-'+i).value.trim().slice(0,60),amount:toInt($('ob-ra-'+i).value),day:$('ob-rd-'+i).value.trim(),paid:$('ob-rp-'+i).checked}));
 }
 function onbErr(m){onb.err=m;const e=$('ob-err');if(e){e.textContent=m;e.hidden=false}}
 function onbNext(){
   const o=onb;if(!o)return;onbRead();o.err='';const now=nowISO();
   if(o.step===1){
-    const op=Object.assign({},D.settings.opening);WALLETS.forEach(([w])=>{if(o.w[w]>0)op[w]=o.w[w];else delete op[w]});
-    mutate([settingsRow({opening:op,opening_date:todayISO()})]);o.step=2;
+    if(o.pf.fin&&o.pf.fin<todayISO())return onbErr('La date de fin doit être aujourd\'hui ou plus tard, ou laisse vide.');
+    const op=Object.assign({},D.settings.opening);
+    if(Object.keys(o.pf).length)op.__profil=o.pf;else delete op.__profil;
+    if(JSON.stringify(op.__profil||null)!==JSON.stringify((D.settings.opening||{}).__profil||null))mutate([settingsRow({opening:op})]);
+    o.step=o.skipW?3:2;
   }else if(o.step===2){
+    const op=Object.assign({},D.settings.opening);WALLETS.forEach(([w])=>{if(o.w[w]>0)op[w]=o.w[w];else delete op[w]});
+    mutate([settingsRow({opening:op,opening_date:todayISO()})]);o.step=3;
+  }else if(o.step===3){
     if(o.day&&dayErr(o.day))return onbErr('Choisis un jour entre 1 et 28, ou laisse vide.');
-    const ops=[];
+    const ops=[], rv=revTxt((o.pf||{}).st);
     if(o.sal>0){
-      if(!o.sald)return onbErr('Indique la date de réception du salaire, ou retire le montant.');
-      if(o.sald>addDays(D.settings.opening_date||todayISO(),-1))return onbErr('Le salaire doit dater d\'avant aujourd\'hui, sinon il serait compté deux fois.');
-      ops.push({t:'incomes',op:'upsert',row:{id:newId(),amount:o.sal,date:o.sald,note:'Salaire',source:'salaire',wallet:WAL[o.salw]?o.salw:'banque',created_at:now,updated_at:now}});
+      if(!o.sald)return onbErr('Indique la date de réception, ou retire le montant.');
+      if(o.sald>addDays(D.settings.opening_date||todayISO(),-1))return onbErr('Cette date doit être antérieure à aujourd\'hui, sinon le montant serait compté deux fois.');
+      ops.push({t:'incomes',op:'upsert',row:{id:newId(),amount:o.sal,date:o.sald,note:SRC[rv.src].label,source:rv.src,wallet:WAL[o.salw]?o.salw:'banque',created_at:now,updated_at:now}});
     }
     if(o.day){const op=Object.assign({},D.settings.opening);op.__cycle={day:toInt(o.day)};ops.push(settingsRow({opening:op}))}
-    if(ops.length)mutate(ops);o.step=3;
-  }else if(o.step===3){
+    if(ops.length)mutate(ops);o.step=4;
+  }else if(o.step===4){
     const ops=[], method=lastMet();
     for(const r of o.rows){
       if(!r.label&&!r.amount&&!r.day)continue;
       if(!r.label||!(r.amount>0)||dayErr(r.day))return onbErr('Pour chaque charge, indique un libellé, un montant et un jour entre 1 et 28.');
       ops.push({t:'recurring',op:'upsert',row:{id:newId(),label:r.label,amount:r.amount,fee:0,category:guessCategory(r.label)||'autres',method,day:toInt(r.day),last_month:r.paid?curM():shiftM(curM(),-1),active:true,created_at:now,updated_at:now}});
     }
-    if(ops.length)mutate(ops);o.step=4;
+    if(ops.length)mutate(ops);o.step=5;
   }else{
     const op=Object.assign({},D.settings.opening,{__start:{done:true}});
     mutate([settingsRow({opening:op})]);onb=null;paintOnb();toast('Démarrage terminé');return;
   }
   paintOnb();
 }
-function onbBack(){if(!onb)return;onbRead();onb.err='';onb.step=Math.max(onb.min,onb.step-1);paintOnb()}
+function onbBack(){if(!onb)return;onbRead();onb.err='';let t=onb.step-1;if(t===2&&onb.skipW)t=1;onb.step=Math.max(onb.min,t);paintOnb()}
 function onbLater(){LS.set(K.onbSnooze,todayISO());onb=null;paintOnb()}
 function onbSkip(){const op=Object.assign({},D.settings.opening,{__start:{done:true}});onb=null;paintOnb();mutate([settingsRow({opening:op})]);toast('Guide ignoré. Tu peux tout régler dans Comptes et Réglages.')}
 function onbFirst(){
@@ -1306,7 +1431,7 @@ function renderDash(){
   const m=S.month, items=monthItems(m), spent=sumBy(items,spend), inc=incomeIn(m), name=mName(m), isCur=m===curM();
   let h=scopeNote();
   h+=isCur?heroNow():heroPast(m);
-  if(isCur)h+=favBlock()+dueBlock()+subsAlertBlock();
+  if(isCur)h+=favBlock()+dueBlock()+subsAlertBlock()+profilAlertBlock();
   const cats=byCat(items);
   const al=Object.entries(D.budgets).filter(([c,b])=>b>0&&(cats[c]||0)/b>=.8).map(([c,b])=>({c,b,s:cats[c]||0}));
   const over=al.filter(a=>a.s>a.b), near=al.filter(a=>a.s<=a.b);
@@ -1602,7 +1727,7 @@ function renderTips(){
     const env=sumBy(items.filter(e=>natureOf(e)==='envie'),spend);
     if(env/total>.3)h+=`<div class="tip"><span class="rail" style="background:var(--gold-400)"></span><div><b>Envies · <span class="num">${pctS(env/total)}</span> des dépenses</b><p>Au-delà de 30 %, une partie des envies peut alimenter ton fonds d'urgence ou un projet d'épargne.</p></div></div>`;
     h+=`</section>`;
-    const me={alimentation:cats.alimentation||0,logfac:(cats.logement||0)+(cats.factures||0),transport:cats.transport||0,communication:cats.communication||0,vetements:cats.vetements||0,loisirs:cats.loisirs||0,sante:cats.sante||0,education:cats.education||0,divers:0};
+    const me={alimentation:cats.alimentation||0,logfac:(cats.logement||0)+(cats.factures||0),transport:cats.transport||0,communication:cats.communication||0,vetements:cats.vetements||0,loisirs:(cats.loisirs||0)+(cats.sport||0)+(cats.abonnements||0),sante:cats.sante||0,education:cats.education||0,divers:0};
     me.divers=Math.max(0,total-sumBy(Object.keys(me),k=>me[k]));
     const lab={alimentation:'Alimentation',logfac:'Logement et factures',transport:'Transport',communication:'Crédit & data',vetements:'Vêtements',loisirs:'Loisirs & sorties',sante:'Santé',education:'Éducation',divers:'Famille & autres'};
     h+=`<section class="block"><div class="block-head"><p class="over">Toi et le ménage moyen de Brazzaville</p><small>part des dépenses</small></div><div class="list">`;
@@ -1611,9 +1736,9 @@ function renderTips(){
     h+=`</div><p class="hint">Moyenne : structure de consommation des ménages de Brazzaville utilisée par l'INS pour l'indice des prix (enquête ECOM 2011, donc ancienne). Repère indicatif, pas un objectif.</p></section>`;
   }
   const hb=hasBudgets();
-  h+=`<section class="block"><div class="block-head"><p class="over">Budgets proposés</p><small class="num">pour ${fmt(R)}</small></div><p class="hint">Point de départ : structure de consommation de Brazzaville (INS, 2011) ajustée à tes revenus. Si tu as déjà des mois de dépenses notées, préfère tes propres moyennes.</p><div>`;
-  for(const c of ['alimentation','logement','transport','factures','communication','loisirs','vetements','famille','sante','education','autres']){const cur=D.budgets[c]||0;
-    h+=`<div class="prop-row"><span class="lab"><span class="dot" style="background:${CAT[c].color}"></span><span>${esc(CAT[c].label)}</span></span><b class="num">${fmt(P.amt[c])}</b><span class="sub hint num">${P.sh[c].toFixed(0)} % des entrées${ownAvg(c)>0?` · ta moyenne ${fmt(ownAvg(c))}`:''}${cur?` · budget actuel ${fmt(cur)}`:''}</span></div>`}
+  h+=`<section class="block"><div class="block-head"><p class="over">Budgets proposés</p><small class="num">pour ${fmt(R)}</small></div><p class="hint">Point de départ : structure de consommation de Brazzaville (INS, 2011) ajustée à tes revenus. Si tu as déjà des mois de dépenses notées, préfère tes propres moyennes.</p>${P.off.length?`<p class="hint">Adapté à ta situation : pas de budget proposé pour ${P.off.map(c=>esc(CAT[c].label)).join(', ')}, que tu ne paies pas. <button type="button" class="linkbtn" data-act="goProfil">Modifier ma situation</button></p>`:Object.keys(profNow()).length?'':`<p class="hint">Tous les postes sont proposés. Dis au carnet ce que tu ne paies pas (logement, transport…) pour des budgets plus justes. <button type="button" class="linkbtn" data-act="goProfil">Indiquer ma situation</button></p>`}${P.idle.length?`<p class="hint">${P.idle.map(c=>esc(CAT[c].label)).join(', ')} : le carnet n'a pas de repère national fiable, il proposera un budget dès que tu y notes des dépenses.</p>`:''}<div>`;
+  for(const [c] of CATS){if(P.amt[c]===undefined)continue;const cur=D.budgets[c]||0;
+    h+=`<div class="prop-row"><span class="lab"><span class="dot" style="background:${CAT[c].color}"></span><span>${esc(CAT[c].label)}</span></span><b class="num">${fmt(P.amt[c])}</b><span class="sub hint num">${P.known.includes(c)?'d\'après tes dépenses réelles':P.sh[c].toFixed(0)+' % des entrées'}${ownAvg(c)>0&&!P.known.includes(c)?` · ta moyenne ${fmt(ownAvg(c))}`:''}${cur?` · budget actuel ${fmt(cur)}`:''}</span></div>`}
   h+=`<div class="prop-row save"><span><b>Épargne visée</b></span><b class="num">${fmt(P.saveAmt)}</b><span class="sub hint">${P.save.toFixed(0)} % des entrées : ce qui doit rester en fin de mois.</span></div></div>
     <div class="actions">${ownMonths().length?`<button type="button" class="${S.armed==='own'?'btn-danger':'btn-primary'}" data-act="applyOwn">${S.armed==='own'?'Confirmer le remplacement':hb?'Remplacer par mes dépenses réelles':'Partir de mes dépenses réelles'}</button>`:''}<button type="button" class="${S.armed==='prop'?'btn-danger':ownMonths().length?'btn':'btn-primary'}" data-act="applyProp">${S.armed==='prop'?'Confirmer le remplacement':hb?'Remplacer par les repères':'Appliquer les repères'}</button></div></section>`;
   return h+renderRefs();
@@ -1715,7 +1840,7 @@ function renderGuide(){
     <details data-keep="gopen" ${S.gopen?'open':''}><summary class="linkbtn">Les mots du carnet</summary><div class="ref" style="grid-template-columns:minmax(0,1fr)">${G.map(([t,d])=>`<span style="white-space:normal"><b>${t}</b><small style="display:block;white-space:normal">${d}</small></span>`).join('')}</div></details></section>`;
 }
 function renderSettings(){
-  let h='';
+  let h=profilSettings();
   const months=[];for(let i=5;i>=0;i--)months.push(shiftM(S.month,-i));
   const sav=months.map(m=>incomeIn(m)?incomeIn(m)-spentIn(m):0);
   const allM=[...new Set([...allItems(),...incomes()].map(e=>e.date.slice(0,7)))].sort();
@@ -1855,7 +1980,7 @@ function ensureChip(box,name,id,map=WAL){if(!id||!map[id]||!map[id].archived||do
 function buildStatic(){
   $('f-cats').innerHTML=chips('cat',CATS);
   $('f-methods').innerHTML=chips('met',METHODS);
-  $('f-srcs').innerHTML=chips('src',SOURCES);
+  $('f-srcs').innerHTML=SOURCE_FAMILIES.map(([f,l])=>`<p class="fam">${esc(l)}</p><div class="chips">${chips('src',SOURCES.filter(x=>x[3]===f))}</div>`).join('');
   $('f-from').innerHTML=chips('from',WALLETS);
   $('f-to').innerHTML=chips('to',WALLETS);
   $('f-nats').innerHTML=chips('nat',[['besoin','Besoin','#04382A'],['envie','Envie','#F5C04A']]);
@@ -2076,7 +2201,7 @@ function categoriesManage(){
       <div class="actions"><button type="button" class="btn-primary sm" data-act="saveCat">Enregistrer</button><button type="button" class="pill" data-act="cancelCat">Annuler</button>${(!isNew&&!base)?`<button type="button" class="pill ${S.armed==='cat:'+id?'danger':''}" data-act="archiveCat">${cur.archived?'Restaurer':(S.armed==='cat:'+id?'Confirmer l\'archivage':'Archiver')}</button>`:''}</div>
       ${(!isNew&&!base&&!cur.archived)?'<p class="hint">Archiver masque la catégorie des saisies. Les dépenses déjà notées sont conservées et tu peux la restaurer. Le budget doit être vide.</p>':''}</div>`;
   }
-  return `<section class="block"><p class="over">Catégories</p><p class="hint">Ajoute les postes de ta vie réelle : dîme, solidarité, coiffure, scolarité. Les 11 catégories de base restent disponibles et tu peux les renommer.</p>
+  return `<section class="block"><p class="over">Catégories</p><p class="hint">Ajoute les postes de ta vie réelle : dîme, solidarité, scolarité, groupe électrogène. Les 14 catégories de base restent disponibles et tu peux les renommer.</p>
     <details data-keep="copen" ${S.copen?'open':''}><summary class="linkbtn">${ic('sliders','s16')} Gérer mes catégories</summary>
       ${presets.length&&!isNew&&!editable?`<div class="add"><p class="over">Suggestions</p><div class="actions">${presets.map(([p,i])=>`<button type="button" class="pill" data-cpreset="${i}">${ic('plus','s16')} ${esc(p.label)}</button>`).join('')}</div></div>`:''}
       <div class="add"><div class="rows">${rows}</div>${isNew||editable?'':`<div class="actions"><button type="button" class="btn-primary sm" data-act="newCat">${ic('plus','s16')}Ajouter une catégorie</button></div>`}</div>${form}
@@ -2237,6 +2362,7 @@ const cleanOpening=(o,ok=id=>!!WAL[id])=>{const out={};if(!o||typeof o!=='object
   if(k==='__subs'){const c=cleanSubs(v), o={fx:c.fx,m:Object.assign({},c.m),ig:c.ig};if(c.rf)o.rf=c.rf;out.__subs=o;continue}
   if(k==='__rem'){if(v&&typeof v==='object')out.__rem={lead:[0,1,2].includes(v.lead)?v.lead:1,hour:[7,8,12,18].includes(v.hour)?v.hour:8,amounts:!!v.amounts,evening:!!v.evening};continue}
   if(k==='__hz'){if(v==='pay'||v==='month')out.__hz=v;continue}
+  if(k==='__profil'){const c=cleanProfil(v);if(Object.keys(c).length)out.__profil=c;continue}
   if(k==='__start'){if(v&&typeof v==='object')out.__start={done:!!v.done};continue}
   if(k==='__chk'){if(v&&typeof v==='object'){const o={};for(const [w,d] of Object.entries(v).slice(0,30))if(SAFE_ID(w)&&/^\d{4}-\d{2}-\d{2}$/.test(String(d)))o[w]=String(d);out.__chk=o}continue}
   if(k==='__skip'){if(Array.isArray(v))out.__skip=v.filter(x=>typeof x==='string'&&/^[A-Za-z0-9_.:-]{1,100}\|\d{4}-\d{2}$/.test(x)).slice(-60);continue}
@@ -2636,7 +2762,7 @@ document.addEventListener('click',ev=>{
     smsToggle:()=>{$('smsArea').hidden=!$('smsArea').hidden;if(!$('smsArea').hidden)$('smsText').focus()},
     toggleDiscreet:()=>{LS.set('cd2-discreet',!discreet());applyDiscreet();render()},
     sendFeedback:()=>sendFeedback('send'),shareFeedback:()=>sendFeedback('share'),changePwd,
-    applyOwn,toggleMore:()=>{S.more=!S.more;render()},startOnb,onbNext,onbBack,onbLater,onbSkip,onbFirst,dlgClose:closeDlg,ckSave,ckExpense,adjDel:()=>adjDel(ds.id),
+    applyOwn,saveProfil,goProfil,emSix,toggleMore:()=>{S.more=!S.more;render()},startOnb,onbNext,onbBack,onbLater,onbSkip,onbFirst,dlgClose:closeDlg,ckSave,ckExpense,adjDel:()=>adjDel(ds.id),
     toastUndo:()=>{const u=toast.undo;toast.undo=null;$('toast').hidden=true;if(u)u()},
     syncNow:()=>sync(true).then(()=>toast(navigator.onLine?'Synchronisé':'Hors ligne : réessaie plus tard')),logout};
   if(acts[ds.act])acts[ds.act]();
@@ -2664,6 +2790,7 @@ document.addEventListener('change',ev=>{
   if(ev.target.id==='discreetOpt'){LS.set('cd2-discreet',ev.target.checked);applyDiscreet();return}
   if(ev.target.id==='lockOpt'){LS.set(K.lock,ev.target.checked);toast(ev.target.checked?'Verrouillage activé':'Verrouillage désactivé');return}
   if(['sb-cur','sb-met','sb-date'].includes(ev.target.id)){subFormSync(ev);return}
+  if(/^(pf|ob)-(st|lg|tr|ch|fin)$/.test(ev.target.id)){profSync(ev.target.id.slice(0,3));return}
   const n=ev.target.name;
   if(n==='cat'){S.catTouched=true;$('catHint').hidden=true;if(!S.natTouched)radio('nat',NEED.has(ev.target.value)?'besoin':'envie')}
   if(n==='nat')S.natTouched=true;

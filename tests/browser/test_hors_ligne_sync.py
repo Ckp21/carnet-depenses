@@ -19,7 +19,7 @@ async def main():
     n0=await page.evaluate("window.__srv.expenses.length")
     await ctx.set_offline(True); await page.wait_for_timeout(200)
     for i in range(3):
-        await page.click('#fab'); await page.fill('#f-amount',str(1000*(i+1))); await page.fill('#f-note',f'hors ligne {i}'); await page.check('input[name=cat][value=autres]',force=True); await page.click('#f-save'); await page.wait_for_timeout(200)
+        await page.click('#fab'); await page.fill('#f-amount',str(1000*(i+1))); await page.fill('#f-note',f'hors ligne {i}'); await page.click('label.chip:has(input[name=cat][value=autres]) span'); await page.click('#f-save'); await page.wait_for_timeout(200)
     check('3 envois en attente hors ligne',await page.evaluate("outbox.length")==3)
     check('indicateur hors ligne',('hors ligne' in await page.inner_text('#syncTxt')) and '3' in await page.inner_text('#syncTxt'),await page.inner_text('#syncTxt'))
     check('rien envoyé au serveur',await page.evaluate("window.__srv.expenses.length")==n0)
@@ -36,7 +36,7 @@ async def main():
     check('indicateur synchronisé',('synchronisé' in await page.inner_text('#syncTxt')),await page.inner_text('#syncTxt'))
     # réseau capricieux : en ligne mais le serveur échoue, nouvel essai automatique
     await page.evaluate("window.__fail.net=true")
-    await page.click('#fab'); await page.fill('#f-amount','7777'); await page.fill('#f-note','serveur en panne'); await page.check('input[name=cat][value=autres]',force=True); await page.click('#f-save'); await page.wait_for_timeout(500)
+    await page.click('#fab'); await page.fill('#f-amount','7777'); await page.fill('#f-note','serveur en panne'); await page.click('label.chip:has(input[name=cat][value=autres]) span'); await page.click('#f-save'); await page.wait_for_timeout(500)
     check('échec : envoi conservé',await page.evaluate("outbox.length")==1)
     check('indicateur : nouvel essai annoncé',('nouvel essai' in await page.inner_text('#syncTxt')),await page.inner_text('#syncTxt'))
     check('incident mémorisé',bool(await page.evaluate("lastErr")))
@@ -49,7 +49,7 @@ async def main():
     check('compteur de tentatives remis à zéro',await page.evaluate("retryN")==0)
     check('journal : succès enregistré',await page.evaluate("LS.get(K.synclog,[])[0].ok")==True)
     # appui sur l'indicateur
-    await page.evaluate("window.__fail.net=true"); await page.click('#fab'); await page.fill('#f-amount','888'); await page.check('input[name=cat][value=autres]',force=True); await page.click('#f-save'); await page.wait_for_timeout(400)
+    await page.evaluate("window.__fail.net=true"); await page.click('#fab'); await page.fill('#f-amount','888'); await page.click('label.chip:has(input[name=cat][value=autres]) span'); await page.click('#f-save'); await page.wait_for_timeout(400)
     await page.evaluate("window.__fail.net=false"); await page.click('#sync'); await page.wait_for_timeout(900)
     check('appui sur l\'indicateur : relance immédiate',await page.evaluate("outbox.length")==0)
     # réglages : détail et journal
@@ -72,12 +72,12 @@ async def main():
     await page.evaluate("sync(true)"); await page.wait_for_timeout(800)
     check('pas de doublon sans changement',await page.evaluate("window.__srv.backups.length")==1)
     # changement + délai écoulé -> nouvelle copie
-    await page.click('#fab'); await page.fill('#f-amount','4321'); await page.fill('#f-note','nouvelle dépense'); await page.check('input[name=cat][value=autres]',force=True); await page.click('#f-save'); await page.wait_for_timeout(700)
+    await page.click('#fab'); await page.fill('#f-amount','4321'); await page.fill('#f-note','nouvelle dépense'); await page.click('label.chip:has(input[name=cat][value=autres]) span'); await page.click('#f-save'); await page.wait_for_timeout(700)
     check('délai de 20 h : pas de copie immédiate',await page.evaluate("window.__srv.backups.length")==1)
     await page.evaluate("LS.set(K.bkAt,Date.now()-21*3600e3);sync(true)"); await page.wait_for_timeout(1200)
     check('nouvelle copie après 20 h et changement',await page.evaluate("window.__srv.backups.length")==2)
     # copie seulement quand la file est vide
-    await page.evaluate("LS.set(K.bkAt,0);window.__fail.net=true"); await page.click('#fab'); await page.fill('#f-amount','55'); await page.check('input[name=cat][value=autres]',force=True); await page.click('#f-save'); await page.wait_for_timeout(300); await page.evaluate("window.__fail.net=false")
+    await page.evaluate("LS.set(K.bkAt,0);window.__fail.net=true"); await page.click('#fab'); await page.fill('#f-amount','55'); await page.click('label.chip:has(input[name=cat][value=autres]) span'); await page.click('#f-save'); await page.wait_for_timeout(300); await page.evaluate("window.__fail.net=false")
     check('copie refusée tant que des envois attendent',await page.evaluate("autoBackup(false)")==False or await page.evaluate("outbox.length")==0)
     await wait_for(page,"outbox.length===0",9000)
     # liste dans Réglages

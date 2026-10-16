@@ -301,15 +301,18 @@ async def main():
 
         # ---------- C2 : démarrage guidé ----------
         ctx, page = await boot(b, empty, tz=TZ, now=NOW, onb=True)
-        check('C2 le guide s\'ouvre sur un compte vide', await page.is_visible('#onb') and 'étape 1 sur 3' in (await page.inner_text('#onb')).lower())
-        check('C2 étape 1 : un champ par portefeuille', await page.locator('#onb input[id^=ob-w-]').count() >= 4)
+        check('C2 le guide s\'ouvre sur un compte vide', await page.is_visible('#onb') and 'étape 1 sur 4' in (await page.inner_text('#onb')).lower())
+        check('C2 étape 1 : la situation (statut, logement, déplacements, charges)', all([await page.locator(f'#ob-{k}').count() for k in ['st', 'lg', 'tr', 'ch']]))
+        await page.click('[data-act=onbNext]'); await page.wait_for_timeout(300)
+        check('C2 situation laissée vide : rien d\'enregistré', (await srv(page, 'settings')) == [])
+        check('C2 étape 2 : un champ par portefeuille', 'étape 2 sur 4' in (await page.inner_text('#onb')).lower() and await page.locator('#onb input[id^=ob-w-]').count() >= 4)
         await page.fill('#ob-w-especes', '20000'); await page.fill('#ob-w-mtn', '5000'); await page.fill('#ob-w-banque', '150000')
         await page.click('[data-act=onbNext]'); await page.wait_for_timeout(700)
         st = (await srv(page, 'settings'))[0]
         check('C2 soldes de départ enregistrés avec la date du jour', st['opening']['especes'] == 20000 and st['opening']['mtn'] == 5000 and st['opening']['banque'] == 150000 and st['opening_date'] == '2026-10-14', st)
-        check('C2 étape 2 : revenu', 'étape 2 sur 3' in (await page.inner_text('#onb')).lower())
+        check('C2 étape 3 : revenu', 'étape 3 sur 4' in (await page.inner_text('#onb')).lower())
         await page.click('[data-act=onbBack]'); await page.wait_for_timeout(200)
-        check('C2 retour possible', 'étape 1 sur 3' in (await page.inner_text('#onb')).lower() and await page.input_value('#ob-w-banque') == '150 000'.replace(' ', ' ') or dg(await page.input_value('#ob-w-banque')) == 150000)
+        check('C2 retour possible', 'étape 2 sur 4' in (await page.inner_text('#onb')).lower() and await page.input_value('#ob-w-banque') == '150 000'.replace(' ', ' ') or dg(await page.input_value('#ob-w-banque')) == 150000)
         await page.click('[data-act=onbNext]'); await page.wait_for_timeout(500)
         await page.fill('#ob-day', '30'); await page.click('[data-act=onbNext]'); await page.wait_for_timeout(200)
         check('C2 jour de paie hors 1 à 28 refusé', 'entre 1 et 28' in await page.inner_text('#ob-err'))
@@ -321,7 +324,7 @@ async def main():
         inc = await srv(page, 'incomes'); st = (await srv(page, 'settings'))[0]
         check('C2 salaire et jour de paie enregistrés', len(inc) == 1 and inc[0]['amount'] == 300000 and inc[0]['date'] == '2026-10-05' and inc[0]['source'] == 'salaire' and st['opening']['__cycle']['day'] == 25, (inc, st))
         check('C2 salaire antérieur non compté deux fois', await page.evaluate("balance('banque')") == 150000)
-        check('C2 étape 3 : charges fixes', 'étape 3 sur 3' in (await page.inner_text('#onb')).lower())
+        check('C2 étape 4 : charges fixes', 'étape 4 sur 4' in (await page.inner_text('#onb')).lower())
         await page.fill('#ob-rl-0', 'Loyer'); await page.click('[data-act=onbNext]'); await page.wait_for_timeout(200)
         check('C2 charge incomplète refusée', 'libellé, un montant et un jour' in await page.inner_text('#ob-err'))
         await page.fill('#ob-ra-0', '80000'); await page.fill('#ob-rd-0', '5')
@@ -365,7 +368,9 @@ async def main():
         ctx, page = await boot(b, seed, tz=TZ, now=NOW, onb=True)
         n_exp, n_inc = len(await srv(page, 'expenses')), len(await srv(page, 'incomes'))
         await page.evaluate("startOnb()"); await page.wait_for_timeout(300)
-        check('C2 soldes existants : démarrage à l\'étape 2, sans écraser', 'étape 2 sur 3' in (await page.inner_text('#onb')).lower())
+        check('C2 soldes existants : démarrage par la situation, sans repasser par les soldes', 'étape 1 sur 4' in (await page.inner_text('#onb')).lower())
+        await page.click('[data-act=onbNext]'); await page.wait_for_timeout(300)
+        check('C2 soldes existants : étape des soldes sautée, pas d\'écrasement', 'étape 3 sur 4' in (await page.inner_text('#onb')).lower())
         await page.click('[data-act=onbSkip]'); await page.wait_for_timeout(600)
         st = (await srv(page, 'settings'))[0]
         check('C2 données existantes intactes', len(await srv(page, 'expenses')) == n_exp and len(await srv(page, 'incomes')) == n_inc and st['opening']['banque'] == 250000 and st['opening_date'] == '2026-07-01', st)
